@@ -227,6 +227,36 @@ export interface PoopEntry {
   source: string | null;
 }
 
+export interface StatsBucket {
+  start: string;
+  end: string;
+  distance: number;
+  duration: number;
+  elevation_gain: number;
+  calories: number;
+  count: number;
+}
+
+export interface StatsType {
+  activity_type: number;
+  name: string;
+  distance: number;
+  duration: number;
+  elevation_gain: number;
+  calories: number;
+  count: number;
+}
+
+export interface ActivityStats {
+  total_distance: number;
+  total_duration: number;
+  total_elevation_gain: number;
+  total_calories: number;
+  activity_count: number;
+  breakdown: StatsBucket[];
+  type_breakdown: StatsType[];
+}
+
 export interface PrivacySettings {
   default_activity_visibility: number;
   hide_activity_start_time: boolean;

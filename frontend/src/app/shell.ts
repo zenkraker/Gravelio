@@ -32,6 +32,14 @@ import { AuthService } from './core/auth';
         <a mat-button routerLink="/gear" routerLinkActive="active" ariaCurrentWhenActive="page" i18n
           >Gear</a
         >
+        <a
+          mat-button
+          routerLink="/stats"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          i18n
+          >Statistics</a
+        >
         <button mat-button type="button" [matMenuTriggerFor]="healthMenu" i18n>
           Health<mat-icon aria-hidden="true">expand_more</mat-icon>
         </button>

@@ -77,7 +77,7 @@ test('unauthenticated visitors are sent to the login page', async ({ page }) => 
 test('upload an activity, view it, and every page is accessible', async ({ page }) => {
   await signIn(page);
   await page
-    .locator('input[type=file]')
+    .getByLabel('Activity file')
     .setInputFiles({ name: 'run.gpx', mimeType: 'application/gpx+xml', buffer: gpx() });
   await expect(page.getByText('Activity uploaded')).toBeVisible();
   await expectAccessible(page);
@@ -92,6 +92,11 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   expect((await visibility).ok()).toBe(true);
   await expect(page.getByRole('region', { name: 'Route map' })).toBeVisible();
   await expect(page.getByRole('img', { name: /Heart rate/ })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('link', { name: 'Statistics' }).click();
+  await expect(page.getByRole('heading', { name: 'Statistics', level: 1 })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Period' })).toBeVisible();
   await expectAccessible(page);
 
   await page.getByRole('link', { name: /Administrator/ }).click();
