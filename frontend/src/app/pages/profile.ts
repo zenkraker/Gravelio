@@ -68,6 +68,14 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
           <mat-form-field
             ><mat-label i18n>Timezone</mat-label><input matInput [formField]="f.timezone"
           /></mat-form-field>
+          <mat-form-field>
+            <mat-label i18n>Currency</mat-label>
+            <select matNativeControl [formField]="f.currency">
+              <option value="euro" i18n>Euro (€)</option>
+              <option value="dollar" i18n>US dollar ($)</option>
+              <option value="pound" i18n>Pound (£)</option>
+            </select>
+          </mat-form-field>
           <mat-form-field
             ><mat-label i18n>Language</mat-label><input matInput [formField]="f.preferred_language"
           /></mat-form-field>
@@ -157,6 +165,7 @@ export class Profile {
       max_heart_rate: u.max_heart_rate,
       timezone: u.timezone,
       preferred_language: u.preferred_language,
+      currency: u.currency,
     };
   }
 

@@ -64,7 +64,7 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   await expectAccessible(page);
 
   await page.getByRole('link', { name: 'E2E run' }).first().click();
-  await expect(page.getByRole('heading', { name: 'E2E run' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'E2E run', level: 1 })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Route map' })).toBeVisible();
   await expect(page.getByRole('img', { name: /Heart rate/ })).toBeVisible();
   await expectAccessible(page);
@@ -76,6 +76,47 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   await page.getByRole('link', { name: 'Users' }).click();
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
   await expectAccessible(page);
+});
+
+test('add gear, give it a component, attach it to an activity; save the profile', async ({
+  page,
+}) => {
+  await signIn(page);
+  const nickname = `E2E bike ${Date.now()}`;
+
+  await page.getByRole('link', { name: 'Gear', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Gear', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Add gear' }).click();
+  await page.getByLabel('Nickname', { exact: true }).fill(nickname);
+  await page.getByLabel('Type', { exact: true }).first().selectOption({ label: 'Bike' });
+  await page.getByRole('button', { name: 'Save gear' }).click();
+  await expect(page.getByText('Gear added')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('link', { name: nickname }).click();
+  await expect(page.getByRole('heading', { name: nickname, level: 1 })).toBeVisible();
+  await page.getByLabel('Component', { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel('Bought on').fill('2026-01-01');
+  await page.getByRole('button', { name: 'Save component' }).click();
+  await expect(page.getByText('Component saved')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto('/activities');
+  await page.getByRole('link', { name: 'E2E run' }).first().click();
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/gear') && r.request().method() === 'PUT',
+  );
+  await page.getByLabel('Gear').selectOption({ label: nickname });
+  expect((await saved).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByLabel('Gear')).toHaveValue(/\d+/);
+
+  await page.getByRole('link', { name: /Administrator/ }).click();
+  await page.getByLabel('Currency').selectOption('pound');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Profile saved')).toBeVisible();
+  await page.goto('/gear'); // the save must not have signed the user out
+  await expect(page.getByRole('heading', { name: 'Gear', level: 1 })).toBeVisible();
 });
 
 test('sign out ends the session', async ({ page }) => {

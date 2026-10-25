@@ -24,6 +24,16 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/activity-detail').then((m) => m.ActivityDetail),
       },
       {
+        path: 'gear',
+        title: 'Gear',
+        loadComponent: () => import('./pages/gears').then((m) => m.Gears),
+      },
+      {
+        path: 'gear/:id',
+        title: 'Gear',
+        loadComponent: () => import('./pages/gear-detail').then((m) => m.GearDetail),
+      },
+      {
         path: 'profile',
         title: 'Profile',
         loadComponent: () => import('./pages/profile').then((m) => m.Profile),

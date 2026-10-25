@@ -4,9 +4,11 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Activity, ActivityStream, StreamType, problemMessage } from '../core/api';
+import { Activity, ActivityStream, GearPage, StreamType, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import {
@@ -27,7 +29,15 @@ import { RouteMap } from '../components/route-map';
 
 @Component({
   selector: 'app-activity-detail',
-  imports: [RouterLink, MatButtonModule, MatIconModule, RouteMap, StreamChart],
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    RouteMap,
+    StreamChart,
+  ],
   template: `
     <a mat-button routerLink="/activities"
       ><mat-icon aria-hidden="true">arrow_back</mat-icon><span i18n>All activities</span></a
@@ -48,6 +58,15 @@ import { RouteMap } from '../components/route-map';
       @if (a.description) {
         <p>{{ a.description }}</p>
       }
+      <mat-form-field class="gear">
+        <mat-label i18n>Gear</mat-label>
+        <select matNativeControl #gearSelect (change)="setGear(gearSelect.value)">
+          <option value="" [selected]="a.gear_id === null" i18n>No gear</option>
+          @for (g of gearChoices(a.gear_id); track g.id) {
+            <option [value]="g.id" [selected]="g.id === a.gear_id">{{ g.nickname }}</option>
+          }
+        </select>
+      </mat-form-field>
       <dl class="stats">
         <div>
           <dt i18n>Distance</dt>
@@ -168,6 +187,9 @@ import { RouteMap } from '../components/route-map';
     .error {
       color: var(--mat-sys-error);
     }
+    .gear {
+      max-width: 320px;
+    }
   `,
 })
 export class ActivityDetail {
@@ -181,6 +203,10 @@ export class ActivityDetail {
   protected readonly types = inject(ActivityTypes);
 
   protected readonly activity = httpResource<Activity>(() => `/api/v1/activities/${this.id()}`);
+  private readonly gears = httpResource<GearPage>(() => ({
+    url: '/api/v1/gears',
+    params: { page_size: 100 },
+  }));
   private readonly streams = httpResource<ActivityStream[]>(
     () => `/api/v1/activities/${this.id()}/streams`,
   );
@@ -210,6 +236,24 @@ export class ActivityDetail {
   protected readonly paceSeries = computed(() =>
     this.series(StreamType.Pace, 'pace', (v) => paceSeconds(v, this.units())),
   );
+
+  /** Active gear, plus the gear already on the activity even if it has been retired since. */
+  protected gearChoices(current: number | null) {
+    return (this.gears.value()?.items ?? []).filter((g) => g.active || g.id === current);
+  }
+
+  protected async setGear(value: string): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.put(`/api/v1/activities/${this.id()}/gear`, {
+          gear_id: value === '' ? null : Number(value),
+        }),
+      );
+      this.activity.reload();
+    } catch (err) {
+      this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
+    }
+  }
 
   private waypoints(type: number) {
     return this.streams.value()?.find((s) => s.stream_type === type)?.waypoints ?? [];

@@ -27,6 +27,9 @@ import { AuthService } from './core/auth';
           i18n
           >Activities</a
         >
+        <a mat-button routerLink="/gear" routerLinkActive="active" ariaCurrentWhenActive="page" i18n
+          >Gear</a
+        >
         @if (auth.isAdmin()) {
           <a
             mat-button

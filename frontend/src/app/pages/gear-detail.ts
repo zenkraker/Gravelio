@@ -104,11 +104,11 @@ const emptyComponent = {
             /></mat-form-field>
             <mat-form-field
               ><mat-label>{{ initialLabel() }}</mat-label
-              ><input matInput type="number" min="0" step="any" [formField]="gf.initialDistance"
+              ><input matInput type="number" step="any" [formField]="gf.initialDistance"
             /></mat-form-field>
             <mat-form-field
               ><mat-label i18n>Purchase value</mat-label
-              ><input matInput type="number" min="0" step="any" [formField]="gf.purchaseValue"
+              ><input matInput type="number" step="any" [formField]="gf.purchaseValue"
             /></mat-form-field>
             <label class="check"
               ><input type="checkbox" [formField]="gf.active" /><span i18n
@@ -220,11 +220,11 @@ const emptyComponent = {
               >
               <mat-form-field
                 ><mat-label>{{ expectedLabel() }}</mat-label
-                ><input matInput type="number" min="0" step="any" [formField]="cf.expectedDistance"
+                ><input matInput type="number" step="any" [formField]="cf.expectedDistance"
               /></mat-form-field>
               <mat-form-field
                 ><mat-label i18n>Purchase value</mat-label
-                ><input matInput type="number" min="0" step="any" [formField]="cf.purchaseValue"
+                ><input matInput type="number" step="any" [formField]="cf.purchaseValue"
               /></mat-form-field>
               @if (componentError()) {
                 <p class="error" role="alert">{{ componentError() }}</p>

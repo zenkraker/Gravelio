@@ -76,12 +76,12 @@ const emptyGear = {
             /></mat-form-field>
             <mat-form-field>
               <mat-label>{{ distanceLabel() }}</mat-label>
-              <input matInput type="number" min="0" step="any" [formField]="f.initialDistance" />
+              <input matInput type="number" step="any" [formField]="f.initialDistance" />
               <mat-hint i18n>Distance already covered before you added it</mat-hint>
             </mat-form-field>
             <mat-form-field
               ><mat-label i18n>Purchase value</mat-label
-              ><input matInput type="number" min="0" step="any" [formField]="f.purchaseValue"
+              ><input matInput type="number" step="any" [formField]="f.purchaseValue"
             /></mat-form-field>
             @if (error()) {
               <p class="error" role="alert">{{ error() }}</p>
