@@ -1,4 +1,5 @@
-using System.ComponentModel.DataAnnotations;
+using FastEndpoints;
+using FluentValidation;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.Identity;
@@ -6,112 +7,242 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Users;
 
-public record UserRead(int Id, string Name, string Username, string Email, string AccessType, bool Active, string? City,
+public sealed record UserRead(int Id, string Name, string Username, string Email, string AccessType, bool Active, string? City,
     DateOnly? Birthdate, string PreferredLanguage, string Gender, string Units, int? Height, int? MaxHeartRate,
     string FirstDayOfWeek, string Timezone)
 {
-    public static UserRead From(User u) => new(u.Id, u.Name, u.Username, u.Email, u.AccessType, u.Active, u.City, u.Birthdate,
-        u.PreferredLanguage, u.Gender, u.Units, u.Height, u.MaxHeartRate, u.FirstDayOfWeek, u.Timezone);
+    public static UserRead From(User u, bool isAdmin) => new(u.Id, u.Name, u.UserName!, u.Email!, isAdmin ? AppRoles.Admin : "regular", u.Active,
+        u.City, u.Birthdate, u.PreferredLanguage, u.Gender, u.Units, u.Height, u.MaxHeartRate, u.FirstDayOfWeek, u.Timezone);
 }
 
-public record ProfileUpdate(
-    [Required, MaxLength(250)] string Name,
-    [Required, EmailAddress, MaxLength(250)] string Email,
-    [MaxLength(250)] string? City,
-    DateOnly? Birthdate,
-    [Required, MaxLength(20)] string PreferredLanguage,
-    [Required, AllowedValues("male", "female", "unspecified")] string Gender,
-    [Required, AllowedValues("metric", "imperial")] string Units,
-    [Range(50, 300)] int? Height,
-    [Range(60, 250)] int? MaxHeartRate,
-    [Required, AllowedValues("sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday")] string FirstDayOfWeek,
-    [Required, MaxLength(64)] string Timezone);
-
-public record AdminUserWrite(
-    [Required, MaxLength(250)] string Name,
-    [Required, RegularExpression(@"^[a-zA-Z0-9.]{1,45}$")] string Username,
-    [Required, EmailAddress, MaxLength(250)] string Email,
-    [Required, AllowedValues(AccessTypes.Regular, AccessTypes.Admin)] string AccessType,
-    bool Active,
-    string? Password);
-
-public record PasswordChange([Required] string CurrentPassword, [Required] string NewPassword);
-
-public static class UserEndpoints
+static class UserRules
 {
-    public static void MapUsers(this IEndpointRouteBuilder app)
+    public static readonly string[] Genders = ["male", "female", "unspecified"];
+    public static readonly string[] Units = ["metric", "imperial"];
+    public static readonly string[] AccessTypes = ["regular", AppRoles.Admin];
+    public static readonly string[] Days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+    // Letters, digits and dots, as in Endurain.
+    public const string UsernamePattern = "^[a-zA-Z0-9.]{1,45}$";
+
+    public static string Describe(IdentityResult result) => string.Join(" ", result.Errors.Select(e => e.Description));
+}
+
+public sealed class GetMeEndpoint(UserManager<User> users) : EndpointWithoutRequest<UserRead>
+{
+    public override void Configure() => Get("/users/me");
+
+    public override async Task HandleAsync(CancellationToken ct)
     {
-        var me = app.MapGroup("/api/v1/users/me").RequireAuthorization();
+        var user = (await users.GetUserAsync(User))!;
+        await Send.OkAsync(UserRead.From(user, await users.IsInRoleAsync(user, AppRoles.Admin)), ct);
+    }
+}
 
-        me.MapGet("", async (HttpContext http, AppDb db) => UserRead.From((await db.Users.FindAsync(http.User.UserId()))!));
+public sealed record UpdateMeRequest(string Name, string Email, string? City, DateOnly? Birthdate, string PreferredLanguage,
+    string Gender, string Units, int? Height, int? MaxHeartRate, string FirstDayOfWeek, string Timezone);
 
-        me.MapPut("", async (ProfileUpdate req, HttpContext http, AppDb db) =>
+public sealed class UpdateMeValidator : Validator<UpdateMeRequest>
+{
+    public UpdateMeValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(250);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(250);
+        RuleFor(x => x.City).MaximumLength(250);
+        RuleFor(x => x.PreferredLanguage).NotEmpty().MaximumLength(20);
+        RuleFor(x => x.Gender).Must(UserRules.Genders.Contains).WithMessage("Unknown gender");
+        RuleFor(x => x.Units).Must(UserRules.Units.Contains).WithMessage("Unknown units");
+        RuleFor(x => x.Height).InclusiveBetween(50, 300);
+        RuleFor(x => x.MaxHeartRate).InclusiveBetween(60, 250);
+        RuleFor(x => x.FirstDayOfWeek).Must(UserRules.Days.Contains).WithMessage("Unknown day of week");
+        RuleFor(x => x.Timezone).Must(tz => TimeZoneInfo.TryFindSystemTimeZoneById(tz, out _)).WithMessage("Unknown timezone");
+    }
+}
+
+public sealed class UpdateMeEndpoint(UserManager<User> users) : Endpoint<UpdateMeRequest, UserRead>
+{
+    public override void Configure() => Put("/users/me");
+
+    public override async Task HandleAsync(UpdateMeRequest req, CancellationToken ct)
+    {
+        var user = (await users.GetUserAsync(User))!;
+        (user.Name, user.City, user.Birthdate, user.PreferredLanguage, user.Gender, user.Units, user.Height, user.MaxHeartRate, user.FirstDayOfWeek, user.Timezone) =
+            (req.Name, req.City, req.Birthdate, req.PreferredLanguage, req.Gender, req.Units, req.Height, req.MaxHeartRate, req.FirstDayOfWeek, req.Timezone);
+        var result = await users.SetEmailAsync(user, req.Email);
+        if (result.Succeeded) result = await users.UpdateAsync(user);
+        if (!result.Succeeded)
         {
-            var user = (await db.Users.FindAsync(http.User.UserId()))!;
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(req.Timezone, out _) is false) return Results.Problem("Unknown timezone", statusCode: 400);
-            if (await db.Users.AnyAsync(u => u.Email == req.Email.ToLower() && u.Id != user.Id)) return Results.Problem("Email already in use", statusCode: 409);
-            (user.Name, user.Email, user.City, user.Birthdate, user.PreferredLanguage, user.Gender, user.Units, user.Height, user.MaxHeartRate, user.FirstDayOfWeek, user.Timezone) =
-                (req.Name, req.Email.ToLower(), req.City, req.Birthdate, req.PreferredLanguage, req.Gender, req.Units, req.Height, req.MaxHeartRate, req.FirstDayOfWeek, req.Timezone);
-            await db.SaveChangesAsync();
-            return Results.Ok(UserRead.From(user));
-        });
+            AddError(UserRules.Describe(result));
+            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
+            return;
+        }
+        await Send.OkAsync(UserRead.From(user, await users.IsInRoleAsync(user, AppRoles.Admin)), ct);
+    }
+}
 
-        me.MapPut("/password", async (PasswordChange req, HttpContext http, AppDb db, IPasswordHasher<User> hasher) =>
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public sealed class ChangePasswordValidator : Validator<ChangePasswordRequest>
+{
+    public ChangePasswordValidator()
+    {
+        RuleFor(x => x.CurrentPassword).NotEmpty().MaximumLength(128);
+        RuleFor(x => x.NewPassword).NotEmpty().MaximumLength(128);
+    }
+}
+
+public sealed class ChangePasswordEndpoint(UserManager<User> users, SignInManager<User> signIn) : Endpoint<ChangePasswordRequest>
+{
+    public override void Configure() => Put("/users/me/password");
+
+    public override async Task HandleAsync(ChangePasswordRequest req, CancellationToken ct)
+    {
+        var user = (await users.GetUserAsync(User))!;
+        var result = await users.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+        if (!result.Succeeded)
         {
-            var user = (await db.Users.FindAsync(http.User.UserId()))!;
-            if (hasher.VerifyHashedPassword(user, user.PasswordHash, req.CurrentPassword) == PasswordVerificationResult.Failed)
-                return Results.Problem("Current password is incorrect", statusCode: 400);
-            if (PasswordPolicy.Validate(req.NewPassword, user.AccessType) is { } error) return Results.Problem(error, statusCode: 400);
-            user.PasswordHash = hasher.HashPassword(user, req.NewPassword);
-            // Sign out every other device.
-            var current = http.User.FindFirst(TokenService.SessionClaim)!.Value;
-            await db.Sessions.Where(s => s.UserId == user.Id && s.Id != current).ExecuteDeleteAsync();
-            await db.SaveChangesAsync();
-            return Results.NoContent();
-        });
+            AddError(UserRules.Describe(result));
+            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+        // ChangePasswordAsync rotated the security stamp, which signs out every other session; keep this one.
+        await signIn.RefreshSignInAsync(user);
+        await Send.NoContentAsync(ct);
+    }
+}
 
-        var admin = app.MapGroup("/api/v1/users").RequireAuthorization(p => p.RequireRole(AccessTypes.Admin));
+public sealed record AdminUserRequest(int Id, string Name, string Username, string Email, string AccessType, bool Active, string? Password);
 
-        admin.MapGet("", async (AppDb db) => (await db.Users.OrderBy(u => u.Username).ToListAsync()).Select(UserRead.From));
+public sealed class AdminUserValidator : Validator<AdminUserRequest>
+{
+    public AdminUserValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(250);
+        RuleFor(x => x.Username).Matches(UserRules.UsernamePattern).WithMessage("Username may only contain letters, digits and dots (max 45).");
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(250);
+        RuleFor(x => x.AccessType).Must(UserRules.AccessTypes.Contains).WithMessage("Unknown access type");
+        RuleFor(x => x.Password).MaximumLength(128);
+        RuleFor(x => x.Password).Must(p => p is null or { Length: >= AdminPasswordValidator.AdminMinLength })
+            .When(x => x.AccessType == AppRoles.Admin).WithMessage(AdminPasswordValidator.TooShortMessage);
+    }
+}
 
-        admin.MapPost("", async (AdminUserWrite req, AppDb db, IPasswordHasher<User> hasher) =>
+public sealed class ListUsersEndpoint(AppDb db) : EndpointWithoutRequest<List<UserRead>>
+{
+    public override void Configure()
+    {
+        Get("/users");
+        Roles(AppRoles.Admin);
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var adminIds = await (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id where r.Name == AppRoles.Admin select ur.UserId)
+            .ToListAsync(ct);
+        var all = await db.Users.AsNoTracking().OrderBy(u => u.UserName).ToListAsync(ct);
+        await Send.OkAsync(all.Select(u => UserRead.From(u, adminIds.Contains(u.Id))).ToList(), ct);
+    }
+}
+
+public sealed class CreateUserEndpoint(UserManager<User> users, TimeProvider time) : Endpoint<AdminUserRequest, UserRead>
+{
+    public override void Configure()
+    {
+        Post("/users");
+        Roles(AppRoles.Admin);
+    }
+
+    public override async Task HandleAsync(AdminUserRequest req, CancellationToken ct)
+    {
+        if (req.Password is null)
         {
-            if ((req.Password is null ? "Password is required" : PasswordPolicy.Validate(req.Password, req.AccessType)) is { } error)
-                return Results.Problem(error, statusCode: 400);
-            if (await db.Users.AnyAsync(u => u.Username == req.Username.ToLower() || u.Email == req.Email.ToLower()))
-                return Results.Problem("Username or email already in use", statusCode: 409);
-            var user = new User { Name = req.Name, Username = req.Username.ToLower(), Email = req.Email.ToLower(), AccessType = req.AccessType, Active = req.Active, PasswordHash = "" };
-            user.PasswordHash = hasher.HashPassword(user, req.Password!);
-            db.Users.Add(user);
-            await db.SaveChangesAsync();
-            return Results.Created($"/api/v1/users/{user.Id}", UserRead.From(user));
-        });
-
-        admin.MapPut("/{id:int}", async (int id, AdminUserWrite req, HttpContext http, AppDb db, IPasswordHasher<User> hasher) =>
+            AddError(r => r.Password, "Password is required");
+            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+        var user = new User { Name = req.Name, UserName = req.Username, Email = req.Email, Active = req.Active, CreatedAt = time.GetUtcNow().UtcDateTime };
+        var result = await users.CreateAsync(user, req.Password);
+        if (result.Succeeded && req.AccessType == AppRoles.Admin) result = await users.AddToRoleAsync(user, AppRoles.Admin);
+        if (!result.Succeeded)
         {
-            var user = await db.Users.FindAsync(id);
-            if (user is null) return Results.NotFound();
-            if (id == http.User.UserId() && (req.AccessType != AccessTypes.Admin || !req.Active))
-                return Results.Problem("You can't remove your own admin access or deactivate yourself", statusCode: 400);
-            if (await db.Users.AnyAsync(u => (u.Username == req.Username.ToLower() || u.Email == req.Email.ToLower()) && u.Id != id))
-                return Results.Problem("Username or email already in use", statusCode: 409);
-            bool revokeSessions = req.Password is not null || req.AccessType != user.AccessType || !req.Active;
-            if (req.Password is not null)
-            {
-                if (PasswordPolicy.Validate(req.Password, req.AccessType) is { } error) return Results.Problem(error, statusCode: 400);
-                user.PasswordHash = hasher.HashPassword(user, req.Password);
-            }
-            (user.Name, user.Username, user.Email, user.AccessType, user.Active) = (req.Name, req.Username.ToLower(), req.Email.ToLower(), req.AccessType, req.Active);
-            // Role, status or password changes take effect immediately by ending the user's sessions.
-            if (revokeSessions) await db.Sessions.Where(s => s.UserId == id).ExecuteDeleteAsync();
-            await db.SaveChangesAsync();
-            return Results.Ok(UserRead.From(user));
-        });
+            AddError(UserRules.Describe(result));
+            await Send.ErrorsAsync(result.Errors.Any(e => e.Code.StartsWith("Duplicate")) ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+        await Send.CreatedAtAsync<ListUsersEndpoint>(null, UserRead.From(user, req.AccessType == AppRoles.Admin), cancellation: ct);
+    }
+}
 
-        admin.MapDelete("/{id:int}", async (int id, HttpContext http, AppDb db) =>
+public sealed class UpdateUserEndpoint(UserManager<User> users) : Endpoint<AdminUserRequest, UserRead>
+{
+    public override void Configure()
+    {
+        Put("/users/{id:int}");
+        Roles(AppRoles.Admin);
+    }
+
+    public override async Task HandleAsync(AdminUserRequest req, CancellationToken ct)
+    {
+        var user = await users.FindByIdAsync(req.Id.ToString());
+        if (user is null)
         {
-            if (id == http.User.UserId()) return Results.Problem("You can't delete yourself", statusCode: 400);
-            return await db.Users.Where(u => u.Id == id).ExecuteDeleteAsync() > 0 ? Results.NoContent() : Results.NotFound();
-        });
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+        bool wasAdmin = await users.IsInRoleAsync(user, AppRoles.Admin);
+        bool makeAdmin = req.AccessType == AppRoles.Admin;
+        if (req.Id == User.UserId() && (!makeAdmin || !req.Active))
+        {
+            AddError("You can't remove your own admin access or deactivate yourself");
+            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+
+        user.Name = req.Name;
+        user.Active = req.Active;
+        var result = await users.SetUserNameAsync(user, req.Username);
+        if (result.Succeeded) result = await users.SetEmailAsync(user, req.Email);
+        if (result.Succeeded && makeAdmin != wasAdmin)
+            result = makeAdmin ? await users.AddToRoleAsync(user, AppRoles.Admin) : await users.RemoveFromRoleAsync(user, AppRoles.Admin);
+        if (result.Succeeded && req.Password is not null)
+            result = await users.RemovePasswordAsync(user) is { Succeeded: true } ? await users.AddPasswordAsync(user, req.Password) : IdentityResult.Failed();
+        if (result.Succeeded) result = await users.UpdateAsync(user);
+        // Role, status and password changes must end the user's current sessions.
+        if (result.Succeeded && (makeAdmin != wasAdmin || !req.Active || req.Password is not null)) result = await users.UpdateSecurityStampAsync(user);
+        if (!result.Succeeded)
+        {
+            AddError(UserRules.Describe(result));
+            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+        await Send.OkAsync(UserRead.From(user, makeAdmin), ct);
+    }
+}
+
+public sealed record DeleteUserRequest(int Id);
+
+public sealed class DeleteUserEndpoint(UserManager<User> users) : Endpoint<DeleteUserRequest>
+{
+    public override void Configure()
+    {
+        Delete("/users/{id:int}");
+        Roles(AppRoles.Admin);
+    }
+
+    public override async Task HandleAsync(DeleteUserRequest req, CancellationToken ct)
+    {
+        if (req.Id == User.UserId())
+        {
+            AddError("You can't delete yourself");
+            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
+            return;
+        }
+        var user = await users.FindByIdAsync(req.Id.ToString());
+        if (user is null) await Send.NotFoundAsync(ct);
+        else
+        {
+            await users.DeleteAsync(user);
+            await Send.NoContentAsync(ct);
+        }
     }
 }

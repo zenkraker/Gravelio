@@ -1,15 +1,13 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Data;
 
-public class User
+public class User : IdentityUser<int>
 {
-    public int Id { get; set; }
     public required string Name { get; set; }
-    public required string Username { get; set; }
-    public required string Email { get; set; }
-    public required string PasswordHash { get; set; }
-    public string AccessType { get; set; } = AccessTypes.Regular;
     public bool Active { get; set; } = true;
     public string? City { get; set; }
     public DateOnly? Birthdate { get; set; }
@@ -20,27 +18,7 @@ public class User
     public int? MaxHeartRate { get; set; }
     public string FirstDayOfWeek { get; set; } = "monday";
     public string Timezone { get; set; } = "UTC";
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-public static class AccessTypes
-{
-    public const string Regular = "regular";
-    public const string Admin = "admin";
-}
-
-public class UserSession
-{
-    public required string Id { get; set; }
-    public int UserId { get; set; }
-    public User User { get; set; } = null!;
-    public required string RefreshTokenHash { get; set; }
-    public string? IpAddress { get; set; }
-    public string? UserAgent { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresAt { get; set; }
-    public int RotationCount { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class Activity
@@ -73,7 +51,7 @@ public class Activity
     public int Visibility { get; set; } = Visibilities.Private;
     public string? TrackerManufacturer { get; set; }
     public string? TrackerModel { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
     public List<ActivityStream> Streams { get; set; } = [];
 }
 
@@ -98,18 +76,15 @@ public static class StreamTypes
     public const int Hr = 1, Power = 2, Cadence = 3, Elevation = 4, Speed = 5, Pace = 6, Map = 7, Temperature = 8;
 }
 
-public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
+public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options), IDataProtectionKeyContext
 {
-    public DbSet<User> Users => Set<User>();
-    public DbSet<UserSession> Sessions => Set<UserSession>();
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityStream> ActivityStreams => Set<ActivityStream>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
-        b.Entity<User>().HasIndex(u => u.Username).IsUnique();
-        b.Entity<User>().HasIndex(u => u.Email).IsUnique();
-        b.Entity<UserSession>().HasOne(s => s.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        base.OnModelCreating(b);
         b.Entity<Activity>().HasOne(a => a.User).WithMany().OnDelete(DeleteBehavior.Cascade);
         b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime });
         b.Entity<ActivityStream>().Property(s => s.Waypoints).HasColumnType("jsonb");
