@@ -5,9 +5,12 @@ import { FormField, form, required, submit } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DefaultGearSlot, Gear, Paged, problemMessage } from '../core/api';
@@ -28,14 +31,17 @@ const emptyGear = {
 
 @Component({
   selector: 'app-gears',
+  providers: [OUTLINE_FIELDS],
   imports: [
     FormField,
     RouterLink,
     MatButtonModule,
     MatCardModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     MatPaginatorModule,
   ],
   template: `
@@ -62,11 +68,11 @@ const emptyGear = {
             /></mat-form-field>
             <mat-form-field>
               <mat-label i18n>Type</mat-label>
-              <select matNativeControl [formField]="f.gearType">
+              <mat-select [formField]="f.gearType">
                 @for (t of types; track t.id) {
-                  <option [value]="t.id">{{ t.label }}</option>
+                  <mat-option [value]="'' + t.id">{{ t.label }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
             <mat-form-field
               ><mat-label i18n>Brand</mat-label><input matInput [formField]="f.brand"
@@ -101,21 +107,16 @@ const emptyGear = {
       </mat-form-field>
       <mat-form-field>
         <mat-label i18n>Type</mat-label>
-        <select matNativeControl #typeSelect (change)="setType(typeSelect.value)">
-          <option value="" [selected]="typeFilter() === ''" i18n>All types</option>
+        <mat-select [value]="typeFilter()" (selectionChange)="setType($event.value)">
+          <mat-option value="" i18n>All types</mat-option>
           @for (t of types; track t.id) {
-            <option [value]="t.id" [selected]="typeFilter() === '' + t.id">{{ t.label }}</option>
+            <mat-option [value]="'' + t.id">{{ t.label }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
-      <label class="check"
-        ><input
-          type="checkbox"
-          #retired
-          [checked]="showRetired()"
-          (change)="setShowRetired(retired.checked)"
-        /><span i18n>Show retired</span></label
-      >
+      <mat-checkbox [checked]="showRetired()" (change)="setShowRetired($event.checked)" i18n>
+        Show retired
+      </mat-checkbox>
     </div>
 
     @if (gears.error()) {
@@ -184,12 +185,15 @@ const emptyGear = {
         <li>
           <mat-form-field>
             <mat-label>{{ activityTypes.name(slot.activity_type) }}</mat-label>
-            <select matNativeControl #choice (change)="setDefault(slot, choice.value)">
-              <option value="" [selected]="slot.gear_id === null" i18n>None</option>
+            <mat-select
+              [value]="'' + (slot.gear_id ?? '')"
+              (selectionChange)="setDefault(slot, $event.value)"
+            >
+              <mat-option value="" i18n>None</mat-option>
               @for (g of choicesFor(slot); track g.id) {
-                <option [value]="g.id" [selected]="g.id === slot.gear_id">{{ g.nickname }}</option>
+                <mat-option [value]="'' + g.id">{{ g.nickname }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         </li>
       }
@@ -214,11 +218,8 @@ const emptyGear = {
       grid-column: 1 / -1;
       justify-self: start;
     }
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 56px;
+    mat-checkbox {
+      align-self: center;
     }
     .list,
     .slots {

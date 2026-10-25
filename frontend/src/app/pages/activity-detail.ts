@@ -5,8 +5,10 @@ import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Activity, ActivityStream, Gear, Paged, StreamType, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
@@ -29,12 +31,14 @@ import { RouteMap } from '../components/route-map';
 
 @Component({
   selector: 'app-activity-detail',
+  providers: [OUTLINE_FIELDS],
   imports: [
     RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     RouteMap,
     StreamChart,
   ],
@@ -60,12 +64,12 @@ import { RouteMap } from '../components/route-map';
       }
       <mat-form-field class="gear">
         <mat-label i18n>Gear</mat-label>
-        <select matNativeControl #gearSelect (change)="setGear(gearSelect.value)">
-          <option value="" [selected]="a.gear_id === null" i18n>No gear</option>
+        <mat-select [value]="'' + (a.gear_id ?? '')" (selectionChange)="setGear($event.value)">
+          <mat-option value="" i18n>No gear</mat-option>
           @for (g of gearChoices(a.gear_id); track g.id) {
-            <option [value]="g.id" [selected]="g.id === a.gear_id">{{ g.nickname }}</option>
+            <mat-option [value]="'' + g.id">{{ g.nickname }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
       <dl class="stats">
         <div>

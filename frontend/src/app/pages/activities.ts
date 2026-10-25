@@ -37,7 +37,7 @@ const PAGE_SIZE = 20;
       <h1 i18n>Activities</h1>
       <input
         #file
-        class="visually-hidden"
+        class="cdk-visually-hidden"
         type="file"
         accept=".gpx,.tcx,.fit"
         aria-label="Activity file"
@@ -58,7 +58,7 @@ const PAGE_SIZE = 20;
     <ul class="list">
       @for (a of page.value()?.items; track a.id) {
         <li>
-          <mat-card appearance="outlined">
+          <mat-card class="topo" appearance="outlined">
             <mat-card-header>
               <h2 mat-card-title>
                 <a [routerLink]="['/activities', a.id]">{{ a.name }}</a>
@@ -109,13 +109,6 @@ const PAGE_SIZE = 20;
       display: flex;
       align-items: center;
       justify-content: space-between;
-    }
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
     }
     .list {
       list-style: none;

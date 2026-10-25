@@ -57,6 +57,9 @@ public static class QueryExtensions
     public static IQueryable<Gear> OwnedBy(this IQueryable<Gear> gears, int userId, int id) =>
         gears.Where(g => g.Id == id && g.UserId == userId);
 
+    public static IQueryable<HealthWeight> OwnedBy(this IQueryable<HealthWeight> weights, int userId, int id) =>
+        weights.Where(w => w.Id == id && w.UserId == userId);
+
     public static IQueryable<GearComponent> OwnedBy(this IQueryable<GearComponent> components, int userId, int gearId, int id) =>
         components.Where(c => c.Id == id && c.GearId == gearId && c.Gear.UserId == userId);
 }

@@ -122,3 +122,11 @@ export function problemMessage(err: unknown): string {
     ? reasons.join(' ')
     : (problem?.detail ?? problem?.title ?? $localize`Something went wrong`);
 }
+
+export interface WeightEntry {
+  id: number;
+  date: string;
+  weight: number;
+  body_fat: number | null;
+  source: string | null;
+}

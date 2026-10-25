@@ -6,58 +6,70 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTableModule } from '@angular/material/table';
 import { Paged, User, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 import { ConfirmDialog } from '../components/confirm-dialog';
 
 @Component({
   selector: 'app-users',
+  providers: [OUTLINE_FIELDS],
   imports: [
     FormField,
     MatButtonModule,
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatPaginatorModule,
+    MatTableModule,
   ],
   template: `
     <h1 i18n>Users</h1>
-    <table>
-      <caption class="visually-hidden" i18n>
-        All users
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col" i18n>Username</th>
-          <th scope="col" i18n>Name</th>
-          <th scope="col" i18n>Email</th>
-          <th scope="col" i18n>Role</th>
-          <th scope="col" i18n>Status</th>
-          <th scope="col" i18n>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (u of users.value()?.items; track u.id) {
-          <tr>
-            <th scope="row">{{ u.username }}</th>
-            <td>{{ u.name }}</td>
-            <td>{{ u.email }}</td>
-            <td>{{ u.access_type }}</td>
-            <td>{{ u.active ? activeLabel : inactiveLabel }}</td>
-            <td>
-              @if (u.id !== me()?.id) {
-                <button mat-button type="button" (click)="toggleActive(u)">
-                  {{ u.active ? deactivateLabel : activateLabel }}
-                </button>
-                <button mat-button type="button" (click)="confirmDelete(u)" i18n>Delete</button>
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
+    <table
+      mat-table
+      [dataSource]="users.value()?.items ?? []"
+      aria-label="All users"
+      i18n-aria-label
+    >
+      <ng-container matColumnDef="username">
+        <th mat-header-cell *matHeaderCellDef i18n>Username</th>
+        <th mat-cell scope="row" *matCellDef="let u">{{ u.username }}</th>
+      </ng-container>
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef i18n>Name</th>
+        <td mat-cell *matCellDef="let u">{{ u.name }}</td>
+      </ng-container>
+      <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef i18n>Email</th>
+        <td mat-cell *matCellDef="let u">{{ u.email }}</td>
+      </ng-container>
+      <ng-container matColumnDef="role">
+        <th mat-header-cell *matHeaderCellDef i18n>Role</th>
+        <td mat-cell *matCellDef="let u">{{ u.access_type }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef i18n>Status</th>
+        <td mat-cell *matCellDef="let u">{{ u.active ? activeLabel : inactiveLabel }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
+        <td mat-cell *matCellDef="let u">
+          @if (u.id !== me()?.id) {
+            <button mat-button type="button" (click)="toggleActive(u)">
+              {{ u.active ? deactivateLabel : activateLabel }}
+            </button>
+            <button mat-button type="button" (click)="confirmDelete(u)" i18n>Delete</button>
+          }
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
     </table>
     <mat-paginator
       [length]="users.value()?.total ?? 0"
@@ -84,10 +96,10 @@ import { ConfirmDialog } from '../components/confirm-dialog';
           /></mat-form-field>
           <mat-form-field>
             <mat-label i18n>Role</mat-label>
-            <select matNativeControl [formField]="f.access_type">
-              <option value="regular" i18n>Regular</option>
-              <option value="admin" i18n>Admin</option>
-            </select>
+            <mat-select [formField]="f.access_type">
+              <mat-option value="regular" i18n>Regular</mat-option>
+              <mat-option value="admin" i18n>Admin</mat-option>
+            </mat-select>
           </mat-form-field>
           <mat-form-field
             ><mat-label i18n>Password</mat-label
@@ -104,20 +116,6 @@ import { ConfirmDialog } from '../components/confirm-dialog';
   styles: `
     table {
       width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: start;
-      padding: 8px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
-    }
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
     }
     form {
       display: grid;
@@ -142,6 +140,7 @@ export class Users {
   private snack = inject(MatSnackBar);
   protected readonly me = inject(AuthService).user;
 
+  protected readonly columns = ['username', 'name', 'email', 'role', 'status', 'actions'];
   protected readonly pageSize = 20;
   protected readonly pageIndex = signal(1);
   protected readonly users = httpResource<Paged<User>>(() => ({

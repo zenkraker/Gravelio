@@ -5,10 +5,15 @@ import { FormField, form, required, submit } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTableModule } from '@angular/material/table';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Gear, GearComponent, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
@@ -33,14 +38,19 @@ const emptyComponent = {
 
 @Component({
   selector: 'app-gear-detail',
+  providers: [OUTLINE_FIELDS],
   imports: [
     FormField,
     RouterLink,
     MatButtonModule,
     MatCardModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatProgressBarModule,
+    MatSelectModule,
+    MatTableModule,
   ],
   template: `
     <a mat-button routerLink="/gear"
@@ -90,11 +100,11 @@ const emptyComponent = {
             /></mat-form-field>
             <mat-form-field>
               <mat-label i18n>Type</mat-label>
-              <select matNativeControl [formField]="gf.gearType">
+              <mat-select [formField]="gf.gearType">
                 @for (t of types; track t.id) {
-                  <option [value]="t.id">{{ t.label }}</option>
+                  <mat-option [value]="'' + t.id">{{ t.label }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
             <mat-form-field
               ><mat-label i18n>Brand</mat-label><input matInput [formField]="gf.brand"
@@ -110,10 +120,8 @@ const emptyComponent = {
               ><mat-label i18n>Purchase value</mat-label
               ><input matInput type="number" step="any" [formField]="gf.purchaseValue"
             /></mat-form-field>
-            <label class="check"
-              ><input type="checkbox" [formField]="gf.active" /><span i18n
-                >In use (untick when you retire it)</span
-              ></label
+            <mat-checkbox [formField]="gf.active" i18n
+              >In use (untick when you retire it)</mat-checkbox
             >
             @if (gearError()) {
               <p class="error" role="alert">{{ gearError() }}</p>
@@ -128,64 +136,68 @@ const emptyComponent = {
         <p i18n>This kind of gear has no components.</p>
       } @else {
         @if (components.value()?.length) {
-          <table>
-            <caption class="visually-hidden" i18n>
-              Components of this gear
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col" i18n>Component</th>
-                <th scope="col" i18n>Bought</th>
-                <th scope="col" i18n>Retired</th>
-                <th scope="col" i18n>Wear</th>
-                <th scope="col" i18n>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (c of components.value(); track c.id) {
-                <tr>
-                  <th scope="row">
-                    {{ label(c.type) }}
-                    @if (c.brand || c.model) {
-                      <br /><small>{{ c.brand }} {{ c.model }}</small>
-                    }
-                  </th>
-                  <td>{{ c.purchase_date }}</td>
-                  <td>{{ c.retired_date ?? '—' }}</td>
-                  <td>
-                    {{ distance(c.used_distance) }}
-                    @if (c.expected_distance !== null) {
-                      <span> / {{ distance(c.expected_distance) }}</span>
-                      <progress
-                        [value]="c.used_distance"
-                        [max]="c.expected_distance || 1"
-                        [attr.aria-label]="wearLabel(c)"
-                      ></progress>
-                    }
-                  </td>
-                  <td>
-                    <button
-                      mat-button
-                      type="button"
-                      (click)="startEdit(c)"
-                      [attr.aria-label]="editLabel(c)"
-                      i18n
-                    >
-                      Edit
-                    </button>
-                    <button
-                      mat-button
-                      type="button"
-                      (click)="confirmDeleteComponent(c)"
-                      [attr.aria-label]="deleteLabel(c)"
-                      i18n
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              }
-            </tbody>
+          <table
+            mat-table
+            [dataSource]="components.value() ?? []"
+            aria-label="Components of this gear"
+            i18n-aria-label
+          >
+            <ng-container matColumnDef="component">
+              <th mat-header-cell *matHeaderCellDef i18n>Component</th>
+              <th mat-cell scope="row" *matCellDef="let c">
+                {{ label(c.type) }}
+                @if (c.brand || c.model) {
+                  <br /><small>{{ c.brand }} {{ c.model }}</small>
+                }
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="bought">
+              <th mat-header-cell *matHeaderCellDef i18n>Bought</th>
+              <td mat-cell *matCellDef="let c">{{ c.purchase_date }}</td>
+            </ng-container>
+            <ng-container matColumnDef="retired">
+              <th mat-header-cell *matHeaderCellDef i18n>Retired</th>
+              <td mat-cell *matCellDef="let c">{{ c.retired_date ?? '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="wear">
+              <th mat-header-cell *matHeaderCellDef i18n>Wear</th>
+              <td mat-cell *matCellDef="let c">
+                {{ distance(c.used_distance) }}
+                @if (c.expected_distance !== null) {
+                  <span> / {{ distance(c.expected_distance) }}</span>
+                  <mat-progress-bar
+                    mode="determinate"
+                    [value]="wearPercent(c)"
+                    [attr.aria-label]="wearLabel(c)"
+                  />
+                }
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
+              <td mat-cell *matCellDef="let c">
+                <button
+                  mat-button
+                  type="button"
+                  (click)="startEdit(c)"
+                  [attr.aria-label]="editLabel(c)"
+                  i18n
+                >
+                  Edit
+                </button>
+                <button
+                  mat-button
+                  type="button"
+                  (click)="confirmDeleteComponent(c)"
+                  [attr.aria-label]="deleteLabel(c)"
+                  i18n
+                >
+                  Delete
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="columns"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
           </table>
         }
 
@@ -195,12 +207,12 @@ const emptyComponent = {
             <form novalidate (submit)="saveComponent($event)">
               <mat-form-field>
                 <mat-label i18n>Component</mat-label>
-                <select matNativeControl [formField]="cf.type">
-                  <option value="" i18n>Choose…</option>
+                <mat-select [formField]="cf.type">
+                  <mat-option value="" i18n>Choose…</mat-option>
                   @for (t of allowedTypes(); track t) {
-                    <option [value]="t">{{ label(t) }}</option>
+                    <mat-option [value]="t">{{ label(t) }}</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
               <mat-form-field
                 ><mat-label i18n>Brand</mat-label><input matInput [formField]="cf.brand"
@@ -270,11 +282,8 @@ const emptyComponent = {
       align-items: start;
       padding-top: 8px;
     }
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 56px;
+    mat-checkbox {
+      align-self: center;
     }
     button[type='submit'],
     .error,
@@ -288,26 +297,10 @@ const emptyComponent = {
     }
     table {
       width: 100%;
-      border-collapse: collapse;
       margin-bottom: 16px;
     }
-    th,
-    td {
-      text-align: start;
-      padding: 8px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
-      vertical-align: top;
-    }
-    progress {
-      display: block;
+    mat-progress-bar {
       width: 160px;
-    }
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
     }
   `,
 })
@@ -347,6 +340,9 @@ export class GearDetail {
   protected readonly expectedLabel = computed(
     () => $localize`Replace after (${distanceUnitLabel(this.units())})`,
   );
+  protected readonly columns = ['component', 'bought', 'retired', 'wear', 'actions'];
+  protected readonly wearPercent = (c: GearComponent) =>
+    Math.min(100, (c.used_distance / (c.expected_distance || 1)) * 100);
   protected readonly wearLabel = (c: GearComponent) => $localize`Wear of ${this.label(c.type)}`;
   protected readonly editLabel = (c: GearComponent) => $localize`Edit ${this.label(c.type)}`;
   protected readonly deleteLabel = (c: GearComponent) => $localize`Delete ${this.label(c.type)}`;

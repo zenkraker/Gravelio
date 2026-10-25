@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Gravelio.Api.Data;
 using GeoTimeZone;
@@ -12,7 +13,8 @@ public static class ActivityBuilder
         var points = p.Points;
         var s = p.Summary;
         int type = ActivityTypes.FromName(p.Sport);
-        static string Ts(DateTime t) => t.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        // Invariant: stream timestamps are a wire contract, not a display value.
+        static string Ts(DateTime t) => t.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
         // Speed between consecutive GPS fixes of the same segment; deltas under 1s count as 1s.
         var vel = new List<(DateTime Time, double V)>();

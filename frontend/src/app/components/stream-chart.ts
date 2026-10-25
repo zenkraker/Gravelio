@@ -1,6 +1,7 @@
 import { Component, ElementRef, effect, input, viewChild } from '@angular/core';
 import { Chart } from 'chart.js/auto';
 import { formatDuration } from '../core/format';
+import { themeColor } from '../core/theme';
 
 export interface ChartPoint {
   x: number; // seconds since the start
@@ -22,6 +23,9 @@ export class StreamChart {
   constructor() {
     effect((onCleanup) => {
       const format = this.format();
+      const host = this.canvas().nativeElement;
+      const text = themeColor(host, 'on-surface-variant');
+      const grid = { color: themeColor(host, 'outline-variant') };
       const chart = new Chart(this.canvas().nativeElement, {
         type: 'line',
         data: {
@@ -31,7 +35,7 @@ export class StreamChart {
               data: this.points(),
               pointRadius: 0,
               borderWidth: 2,
-              borderColor: '#0b57d0',
+              borderColor: themeColor(host, 'primary'),
             },
           ],
         },
@@ -39,10 +43,15 @@ export class StreamChart {
           parsing: false,
           animation: false,
           maintainAspectRatio: false,
+          color: text,
           plugins: { legend: { display: false }, title: { display: true, text: this.label() } },
           scales: {
-            x: { type: 'linear', ticks: { callback: (v) => formatDuration(Number(v)) } },
-            y: { ticks: { precision: 0, callback: (v) => format(Number(v)) } },
+            x: {
+              type: 'linear',
+              grid,
+              ticks: { color: text, callback: (v) => formatDuration(Number(v)) },
+            },
+            y: { grid, ticks: { color: text, precision: 0, callback: (v) => format(Number(v)) } },
           },
         },
       });

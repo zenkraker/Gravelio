@@ -5,7 +5,9 @@ import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { User, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
@@ -14,7 +16,15 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
 
 @Component({
   selector: 'app-profile',
-  imports: [FormField, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
+  providers: [OUTLINE_FIELDS],
+  imports: [
+    FormField,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+  ],
   template: `
     <h1 i18n>Profile</h1>
     <mat-card appearance="outlined">
@@ -36,26 +46,26 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
           /></mat-form-field>
           <mat-form-field>
             <mat-label i18n>Units</mat-label>
-            <select matNativeControl [formField]="f.units">
-              <option value="metric" i18n>Metric</option>
-              <option value="imperial" i18n>Imperial</option>
-            </select>
+            <mat-select [formField]="f.units">
+              <mat-option value="metric" i18n>Metric</mat-option>
+              <mat-option value="imperial" i18n>Imperial</mat-option>
+            </mat-select>
           </mat-form-field>
           <mat-form-field>
             <mat-label i18n>Gender</mat-label>
-            <select matNativeControl [formField]="f.gender">
-              <option value="male" i18n>Male</option>
-              <option value="female" i18n>Female</option>
-              <option value="unspecified" i18n>Unspecified</option>
-            </select>
+            <mat-select [formField]="f.gender">
+              <mat-option value="male" i18n>Male</mat-option>
+              <mat-option value="female" i18n>Female</mat-option>
+              <mat-option value="unspecified" i18n>Unspecified</mat-option>
+            </mat-select>
           </mat-form-field>
           <mat-form-field>
             <mat-label i18n>First day of week</mat-label>
-            <select matNativeControl [formField]="f.first_day_of_week">
+            <mat-select [formField]="f.first_day_of_week">
               @for (day of days; track day) {
-                <option [value]="day">{{ day }}</option>
+                <mat-option [value]="day">{{ day }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
           <mat-form-field
             ><mat-label i18n>Height (cm)</mat-label
@@ -70,11 +80,11 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
           /></mat-form-field>
           <mat-form-field>
             <mat-label i18n>Currency</mat-label>
-            <select matNativeControl [formField]="f.currency">
-              <option value="euro" i18n>Euro (€)</option>
-              <option value="dollar" i18n>US dollar ($)</option>
-              <option value="pound" i18n>Pound (£)</option>
-            </select>
+            <mat-select [formField]="f.currency">
+              <mat-option value="euro" i18n>Euro (€)</mat-option>
+              <mat-option value="dollar" i18n>US dollar ($)</mat-option>
+              <mat-option value="pound" i18n>Pound (£)</mat-option>
+            </mat-select>
           </mat-form-field>
           <mat-form-field
             ><mat-label i18n>Language</mat-label><input matInput [formField]="f.preferred_language"

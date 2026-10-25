@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Dynastream.Fit;
@@ -34,9 +35,9 @@ public class ImportTests
     [Fact]
     public void Gpx_is_parsed_into_activity_and_streams()
     {
-        var pts = string.Concat(Track().Select(p =>
+        var pts = string.Concat(Track().Select(p => string.Create(CultureInfo.InvariantCulture,
             $"<trkpt lat=\"{p.Lat}\" lon=\"{p.Lon}\"><ele>{p.Ele}</ele><time>{p.T:yyyy-MM-ddTHH:mm:ssZ}</time>" +
-            $"<extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>{p.Hr}</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions></trkpt>"));
+            $"<extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>{p.Hr}</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions></trkpt>")));
         var gpx = $"""
             <?xml version="1.0"?>
             <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
@@ -78,9 +79,9 @@ public class ImportTests
     [Fact]
     public void Tcx_is_parsed()
     {
-        var tps = string.Concat(Track().Select(p =>
+        var tps = string.Concat(Track().Select(p => string.Create(CultureInfo.InvariantCulture,
             $"<Trackpoint><Time>{p.T:yyyy-MM-ddTHH:mm:ssZ}</Time><Position><LatitudeDegrees>{p.Lat}</LatitudeDegrees><LongitudeDegrees>{p.Lon}</LongitudeDegrees></Position>" +
-            $"<AltitudeMeters>{p.Ele}</AltitudeMeters><HeartRateBpm><Value>{p.Hr}</Value></HeartRateBpm><Cadence>85</Cadence></Trackpoint>"));
+            $"<AltitudeMeters>{p.Ele}</AltitudeMeters><HeartRateBpm><Value>{p.Hr}</Value></HeartRateBpm><Cadence>85</Cadence></Trackpoint>")));
         var tcx = $"""
             <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
               <Activities><Activity Sport="Biking"><Lap><DistanceMeters>3600</DistanceMeters><Calories>250</Calories><Track>{tps}</Track></Lap></Activity></Activities>

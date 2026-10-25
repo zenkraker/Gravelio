@@ -120,6 +120,26 @@ public class DefaultGear
     public Gear Gear { get; set; } = null!;
 }
 
+/// One body-composition reading per user and day.
+public class HealthWeight
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateOnly Date { get; set; }
+    /// Kilograms.
+    public decimal Weight { get; set; }
+    public decimal? Bmi { get; set; }
+    public decimal? BodyFat { get; set; }
+    public decimal? BodyWater { get; set; }
+    public decimal? BoneMass { get; set; }
+    public decimal? MuscleMass { get; set; }
+    public int? PhysiqueRating { get; set; }
+    public decimal? VisceralFat { get; set; }
+    public int? MetabolicAge { get; set; }
+    /// Set by integrations (e.g. "garmin"); null for manual entries.
+    public string? Source { get; set; }
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
@@ -127,6 +147,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Gear> Gears => Set<Gear>();
     public DbSet<GearComponent> GearComponents => Set<GearComponent>();
     public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
+    public DbSet<HealthWeight> HealthWeights => Set<HealthWeight>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -147,6 +168,11 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<DefaultGear>().HasOne(d => d.Gear).WithMany().HasForeignKey(d => d.GearId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<DefaultGear>().HasOne<User>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<DefaultGear>().HasIndex(d => new { d.UserId, d.ActivityType }).IsUnique();
+        b.Entity<HealthWeight>().HasOne<User>().WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+        // One reading per day; the create endpoint upserts on it and relies on the index to reject parallel duplicates.
+        b.Entity<HealthWeight>().HasIndex(w => new { w.UserId, w.Date }).IsUnique();
+        foreach (var p in new[] { nameof(HealthWeight.Weight), nameof(HealthWeight.Bmi), nameof(HealthWeight.BodyFat), nameof(HealthWeight.BodyWater), nameof(HealthWeight.BoneMass), nameof(HealthWeight.MuscleMass), nameof(HealthWeight.VisceralFat) })
+            b.Entity<HealthWeight>().Property(p).HasPrecision(10, 2);
         b.Entity<Activity>().HasMany(a => a.Streams).WithOne().HasForeignKey(s => s.ActivityId).OnDelete(DeleteBehavior.Cascade);
     }
 }

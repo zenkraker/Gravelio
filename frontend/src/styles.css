@@ -1,1 +1,19 @@
-/* You can add global styles to this file, and also import other style files */
+/* Gravel design language: faint contour lines, tinted from the theme so they work in light and dark. */
+.topo {
+  background-image: repeating-radial-gradient(
+    circle at 88% 12%,
+    transparent 0 14px,
+    color-mix(in srgb, var(--mat-sys-primary) 12%, transparent) 14px 15px
+  );
+}
+
+/* Card titles link to their detail page: styled as headings, underlined only on hover and focus. */
+.mat-mdc-card-title a {
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+}
+.mat-mdc-card-title a:hover,
+.mat-mdc-card-title a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

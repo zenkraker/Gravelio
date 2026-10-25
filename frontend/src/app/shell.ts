@@ -30,6 +30,14 @@ import { AuthService } from './core/auth';
         <a mat-button routerLink="/gear" routerLinkActive="active" ariaCurrentWhenActive="page" i18n
           >Gear</a
         >
+        <a
+          mat-button
+          routerLink="/weight"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          i18n
+          >Weight</a
+        >
         @if (auth.isAdmin()) {
           <a
             mat-button
@@ -52,15 +60,20 @@ import { AuthService } from './core/auth';
   styles: `
     .brand {
       font: var(--mat-sys-title-large);
-      color: inherit;
+      color: var(--mat-sys-primary);
       text-decoration: none;
       margin-right: 16px;
+    }
+    mat-toolbar {
+      background: var(--mat-sys-surface-container);
+      color: var(--mat-sys-on-surface);
     }
     .spacer {
       flex: 1;
     }
     .active {
       background: var(--mat-sys-secondary-container);
+      border-radius: var(--mat-sys-corner-full);
     }
     main {
       max-width: 1100px;

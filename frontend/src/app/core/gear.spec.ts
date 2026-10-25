@@ -13,7 +13,9 @@ describe('gear', () => {
 
   it('formats money in the user currency and shows a dash for none', () => {
     expect(formatMoney(null, 'euro')).toBe('—');
-    expect(formatMoney(12.5, 'dollar')).toContain('12.50');
+    // The browser locale decides the decimal separator and symbol placement, so assert both halves separately.
+    expect(formatMoney(12.5, 'dollar')).toMatch(/12[.,]50/);
+    expect(formatMoney(12.5, 'dollar')).toMatch(/(USD|\$)/);
     expect(formatMoney(12.5, 'pound')).toContain('£');
   });
 });

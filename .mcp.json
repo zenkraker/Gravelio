@@ -2,7 +2,22 @@
   "mcpServers": {
     "angular-cli": {
       "command": "pnpm",
-      "args": ["--dir", "frontend", "exec", "ng", "mcp"]
+      "args": [
+        "--dir",
+        "frontend",
+        "exec",
+        "ng",
+        "mcp"
+      ]
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ],
+      "alwaysLoad": true
     }
   }
 }

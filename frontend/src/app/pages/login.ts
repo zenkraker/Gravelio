@@ -4,12 +4,14 @@ import { FormField, form, required, submit } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatInputModule } from '@angular/material/input';
 import { problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 
 @Component({
   selector: 'app-login',
+  providers: [OUTLINE_FIELDS],
   imports: [FormField, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <main>

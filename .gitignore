@@ -487,3 +487,9 @@ node_modules/
 .angular/
 
 .env
+
+# Local DataProtection key ring (production keeps it on the api-keys volume).
+backend/Gravelio.Api/keys/
+
+# CodeGraph local index.
+.codegraph/

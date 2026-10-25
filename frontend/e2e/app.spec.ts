@@ -19,6 +19,9 @@ function gpx(): Buffer {
 }
 
 async function expectAccessible(page: Page): Promise<void> {
+  // A snackbar fading out is captured with its surface still half-transparent, which fails axe on colours
+  // that pass at rest. Wait until no snackbar is left (the text assertion before this already saw it).
+  await expect(page.locator('.mat-mdc-snack-bar-label')).toHaveCount(0);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
@@ -88,14 +91,16 @@ test('add gear, give it a component, attach it to an activity; save the profile'
   await expect(page.getByRole('heading', { name: 'Gear', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Add gear' }).click();
   await page.getByLabel('Nickname', { exact: true }).fill(nickname);
-  await page.getByLabel('Type', { exact: true }).first().selectOption({ label: 'Bike' });
+  await page.getByRole('combobox', { name: 'Type' }).first().click();
+  await page.getByRole('option', { name: 'Bike' }).click();
   await page.getByRole('button', { name: 'Save gear' }).click();
   await expect(page.getByText('Gear added')).toBeVisible();
   await expectAccessible(page);
 
   await page.getByRole('link', { name: nickname }).click();
   await expect(page.getByRole('heading', { name: nickname, level: 1 })).toBeVisible();
-  await page.getByLabel('Component', { exact: true }).selectOption({ index: 1 });
+  await page.getByRole('combobox', { name: 'Component' }).click();
+  await page.getByRole('option').nth(1).click();
   await page.getByLabel('Bought on').fill('2026-01-01');
   await page.getByRole('button', { name: 'Save component' }).click();
   await expect(page.getByText('Component saved')).toBeVisible();
@@ -106,17 +111,41 @@ test('add gear, give it a component, attach it to an activity; save the profile'
   const saved = page.waitForResponse(
     (r) => r.url().endsWith('/gear') && r.request().method() === 'PUT',
   );
-  await page.getByLabel('Gear').selectOption({ label: nickname });
+  await page.getByRole('combobox', { name: 'Gear' }).click();
+  await page.getByRole('option', { name: nickname }).click();
   expect((await saved).ok()).toBe(true);
   await page.reload();
-  await expect(page.getByLabel('Gear')).toHaveValue(/\d+/);
+  await expect(page.getByRole('combobox', { name: 'Gear' })).toContainText(nickname);
 
   await page.getByRole('link', { name: /Administrator/ }).click();
-  await page.getByLabel('Currency').selectOption('pound');
+  await page.getByRole('combobox', { name: 'Currency' }).click();
+  await page.getByRole('option', { name: 'Pound' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Profile saved')).toBeVisible();
   await page.goto('/gear'); // the save must not have signed the user out
   await expect(page.getByRole('heading', { name: 'Gear', level: 1 })).toBeVisible();
+});
+
+test('log a weight reading, replace it the same day, delete it', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('link', { name: 'Weight', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Weight', level: 1 })).toBeVisible();
+
+  const save = async (kg: string) => {
+    await page.getByLabel('Date', { exact: true }).fill('2026-02-14');
+    await page.getByLabel('Weight (kg)').fill(kg);
+    await page.getByRole('button', { name: 'Save reading' }).click();
+    await expect(page.getByText('Reading saved')).toBeVisible();
+  };
+  await save('80.5');
+  await save('79.9');
+  await expect(page.getByRole('row', { name: /Feb 14, 2026/ })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: '79.9 kg' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the reading from 2026-02-14/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 14, 2026/ })).toHaveCount(0);
 });
 
 test('sign out ends the session', async ({ page }) => {

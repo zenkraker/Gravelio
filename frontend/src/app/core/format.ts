@@ -76,3 +76,18 @@ export function displayToMeters(value: number, units: Units): number {
 export function distanceUnitLabel(units: Units): string {
   return units === 'imperial' ? $localize`mi` : $localize`km`;
 }
+
+const LB_PER_KG = 2.2046226218;
+
+/** Forms and tables show body weight in the user's unit (kg or lb) while the API stores kilograms. */
+export function kgToDisplay(kg: number, units: Units): number {
+  return Math.round(kg * (units === 'imperial' ? LB_PER_KG : 1) * 10) / 10;
+}
+
+export function displayToKg(value: number, units: Units): number {
+  return value / (units === 'imperial' ? LB_PER_KG : 1);
+}
+
+export function weightUnitLabel(units: Units): string {
+  return units === 'imperial' ? $localize`lb` : $localize`kg`;
+}

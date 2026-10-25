@@ -1,10 +1,12 @@
 import {
+  displayToKg,
   formatDateTime,
   formatDistance,
   formatDuration,
   formatElevation,
   formatPace,
   formatSpeed,
+  kgToDisplay,
 } from './format';
 
 describe('format', () => {
@@ -39,5 +41,11 @@ describe('format', () => {
     const lisbonSummer = formatDateTime('2026-07-01T12:00:00Z', 'Europe/Lisbon');
     const utc = formatDateTime('2026-07-01T12:00:00Z', null);
     expect(lisbonSummer).not.toBe(utc);
+  });
+
+  it('converts body weight both ways', () => {
+    expect(kgToDisplay(80, 'metric')).toBe(80);
+    expect(kgToDisplay(80, 'imperial')).toBe(176.4);
+    expect(displayToKg(176.4, 'imperial')).toBeCloseTo(80, 1);
   });
 });
