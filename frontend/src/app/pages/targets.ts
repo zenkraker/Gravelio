@@ -12,7 +12,7 @@ import { displayToKg, kgToDisplay, weightUnitLabel } from '../core/format';
 import { OUTLINE_FIELDS } from '../core/outline-fields';
 
 type TargetKey = 'weight' | 'steps' | 'sleepHours' | 'water' | 'fastingHours' | 'poop';
-const empty = { weight: '', steps: '', sleepHours: '', water: '', fastingHours: '', poop: '' };
+type TargetModel = Record<TargetKey, string>;
 
 @Component({
   selector: 'app-targets',
@@ -27,72 +27,76 @@ const empty = { weight: '', steps: '', sleepHours: '', water: '', fastingHours: 
         @if (targets.error()) {
           <p class="error" role="alert" i18n>Could not load your targets.</p>
         }
-        <form novalidate (submit)="save($event)">
-          <mat-form-field>
-            <mat-label>{{ weightLabel() }}</mat-label>
-            <input
-              matInput
-              type="number"
-              #weight
-              [value]="model().weight"
-              (input)="set('weight', weight.value)"
-            />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label i18n>Steps target</mat-label>
-            <input
-              matInput
-              type="number"
-              #steps
-              [value]="model().steps"
-              (input)="set('steps', steps.value)"
-            />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label i18n>Sleep target (hours)</mat-label>
-            <input
-              matInput
-              type="number"
-              #sleepHours
-              [value]="model().sleepHours"
-              (input)="set('sleepHours', sleepHours.value)"
-            />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label i18n>Water target (ml)</mat-label>
-            <input
-              matInput
-              type="number"
-              #water
-              [value]="model().water"
-              (input)="set('water', water.value)"
-            />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label i18n>Fasting target (hours)</mat-label>
-            <input
-              matInput
-              type="number"
-              #fastingHours
-              [value]="model().fastingHours"
-              (input)="set('fastingHours', fastingHours.value)"
-            />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label i18n>Bowel movements target</mat-label>
-            <input
-              matInput
-              type="number"
-              #poop
-              [value]="model().poop"
-              (input)="set('poop', poop.value)"
-            />
-          </mat-form-field>
-          @if (error()) {
-            <p class="error" role="alert">{{ error() }}</p>
-          }
-          <button mat-flat-button type="submit" i18n>Save targets</button>
-        </form>
+        @if (model(); as m) {
+          <form novalidate (submit)="save($event)">
+            <mat-form-field>
+              <mat-label>{{ weightLabel() }}</mat-label>
+              <input
+                matInput
+                type="number"
+                #weight
+                [value]="m.weight"
+                (input)="set('weight', weight.value)"
+              />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label i18n>Steps target</mat-label>
+              <input
+                matInput
+                type="number"
+                #steps
+                [value]="m.steps"
+                (input)="set('steps', steps.value)"
+              />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label i18n>Sleep target (hours)</mat-label>
+              <input
+                matInput
+                type="number"
+                #sleepHours
+                [value]="m.sleepHours"
+                (input)="set('sleepHours', sleepHours.value)"
+              />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label i18n>Water target (ml)</mat-label>
+              <input
+                matInput
+                type="number"
+                #water
+                [value]="m.water"
+                (input)="set('water', water.value)"
+              />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label i18n>Fasting target (hours)</mat-label>
+              <input
+                matInput
+                type="number"
+                #fastingHours
+                [value]="m.fastingHours"
+                (input)="set('fastingHours', fastingHours.value)"
+              />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label i18n>Bowel movements target</mat-label>
+              <input
+                matInput
+                type="number"
+                #poop
+                [value]="m.poop"
+                (input)="set('poop', poop.value)"
+              />
+            </mat-form-field>
+            @if (error()) {
+              <p class="error" role="alert">{{ error() }}</p>
+            }
+            <button mat-flat-button type="submit" i18n>Save targets</button>
+          </form>
+        } @else if (!targets.error()) {
+          <p i18n>Loading targets…</p>
+        }
       </mat-card-content>
     </mat-card>
   `,
@@ -127,7 +131,7 @@ export class Targets {
   );
 
   protected readonly targets = httpResource<HealthTargets>(() => '/api/v1/health/targets');
-  protected readonly model = signal({ ...empty });
+  protected readonly model = signal<TargetModel | null>(null);
 
   constructor() {
     effect(() => {
@@ -146,13 +150,14 @@ export class Targets {
   }
 
   protected set(key: TargetKey, value: string): void {
-    this.model.update((m) => ({ ...m, [key]: value }));
+    this.model.update((m) => (m ? { ...m, [key]: value } : m));
   }
 
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
     this.error.set('');
     const v = this.model();
+    if (!v) return;
     const number = (value: string) => (value === '' ? null : Number(value));
     const hours = (value: string) => (value === '' ? null : Math.round(Number(value) * 3600));
     try {

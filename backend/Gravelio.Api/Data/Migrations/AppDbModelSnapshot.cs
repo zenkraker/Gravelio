@@ -302,6 +302,90 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("GearComponents");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.HealthFasting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActualDurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("FastEndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FastStartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FastingType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("TargetDurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'in_progress'");
+
+                    b.HasIndex("UserId", "FastStartTime");
+
+                    b.ToTable("HealthFastings", t =>
+                        {
+                            t.HasCheckConstraint("CK_HealthFastings_Status", "\"Status\" IN ('in_progress', 'completed', 'broken', 'cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthPoop", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BristolType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("DateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DateTime");
+
+                    b.ToTable("HealthPoops");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.HealthSleep", b =>
                 {
                     b.Property<int>("Id")
@@ -975,6 +1059,24 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gear");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthFasting", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthPoop", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.HealthSleep", b =>

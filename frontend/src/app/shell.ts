@@ -41,6 +41,8 @@ import { AuthService } from './core/auth';
           <a mat-menu-item routerLink="/sleep" i18n>Sleep</a>
           <a mat-menu-item routerLink="/water" i18n>Water</a>
           <a mat-menu-item routerLink="/targets" i18n>Targets</a>
+          <a mat-menu-item routerLink="/fasting" i18n>Fasting</a>
+          <a mat-menu-item routerLink="/poop" i18n>Bowel movements</a>
         </mat-menu>
         <a
           mat-button

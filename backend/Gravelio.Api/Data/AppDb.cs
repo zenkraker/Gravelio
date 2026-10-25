@@ -260,6 +260,50 @@ public class HealthTarget
     public int? PoopCount { get; set; }
 }
 
+/// A fasting session; exactly one may be in progress per user at a time.
+public class HealthFasting
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateTime FastStartTime { get; set; }
+    public DateTime? FastEndTime { get; set; }
+    public int? TargetDurationSeconds { get; set; }
+    public int? ActualDurationSeconds { get; set; }
+    public string? FastingType { get; set; }
+    public string Status { get; set; } = FastingStatuses.InProgress;
+    public string? Notes { get; set; }
+    /// Set by integrations (e.g. "garmin"); "manual" for user entries.
+    public string? Source { get; set; }
+}
+
+public static class FastingStatuses
+{
+    public const string InProgress = "in_progress", Completed = "completed", Broken = "broken", Cancelled = "cancelled";
+}
+
+public static class FastingTypes
+{
+    public static readonly string[] All = ["16:8", "18:6", "20:4", "OMAD", "24h", "36h", "48h", "72h", "custom"];
+}
+
+/// One bowel-movement record; several per day are allowed.
+public class HealthPoop
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateTime DateTime { get; set; }
+    public int? BristolType { get; set; }
+    public string? Color { get; set; }
+    public string? Notes { get; set; }
+    /// Set by integrations (e.g. "manual"); null for manual entries.
+    public string? Source { get; set; }
+}
+
+public static class PoopColors
+{
+    public static readonly string[] All = ["brown", "dark_brown", "light_brown", "yellow", "green", "black", "red", "white"];
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
@@ -272,6 +316,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<HealthSleep> HealthSleeps => Set<HealthSleep>();
     public DbSet<HealthWater> HealthWaters => Set<HealthWater>();
     public DbSet<HealthTarget> HealthTargets => Set<HealthTarget>();
+    public DbSet<HealthFasting> HealthFastings => Set<HealthFasting>();
+    public DbSet<HealthPoop> HealthPoops => Set<HealthPoop>();
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
@@ -312,6 +358,15 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<HealthTarget>().HasIndex(t => t.UserId).IsUnique();
         b.Entity<HealthTarget>().Property(t => t.Weight).HasPrecision(10, 2);
         b.Entity<HealthTarget>().Property(t => t.WaterMl).HasPrecision(10, 2);
+        b.Entity<HealthFasting>().HasOne<User>().WithMany().HasForeignKey(f => f.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthFasting>().HasIndex(f => new { f.UserId, f.FastStartTime });
+        // At most one in-progress session per user, enforced by the database for parallel starts.
+        b.Entity<HealthFasting>().HasIndex(f => f.UserId).IsUnique().HasFilter("\"Status\" = 'in_progress'");
+        b.Entity<HealthFasting>().Property(f => f.Status).HasMaxLength(20);
+        b.Entity<HealthFasting>().ToTable(t =>
+            t.HasCheckConstraint("CK_HealthFastings_Status", "\"Status\" IN ('in_progress', 'completed', 'broken', 'cancelled')"));
+        b.Entity<HealthPoop>().HasOne<User>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthPoop>().HasIndex(p => new { p.UserId, p.DateTime });
         b.Entity<Follow>().HasOne(f => f.Follower).WithMany().HasForeignKey(f => f.FollowerId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Follow>().HasOne(f => f.Followee).WithMany().HasForeignKey(f => f.FolloweeId).OnDelete(DeleteBehavior.Cascade);
         // One relationship per direction; the follow endpoint relies on this to reject parallel requests.

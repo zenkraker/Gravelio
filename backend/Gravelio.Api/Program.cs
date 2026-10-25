@@ -68,6 +68,12 @@ using (var scope = app.Services.CreateScope())
 
 app.UseForwardedHeaders();
 app.UseRouting();
+// Authenticated API responses must never be reused from the browser cache.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/api")) ctx.Response.Headers.CacheControl = "no-store";
+    await next();
+});
 app.UseRateLimiter();
 app.UseAuthentication();
 // Before authorization, which short-circuits 401s: those responses must still hand out an XSRF token.

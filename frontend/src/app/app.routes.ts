@@ -69,6 +69,16 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/targets').then((m) => m.Targets),
       },
       {
+        path: 'fasting',
+        title: 'Fasting',
+        loadComponent: () => import('./pages/fasting').then((m) => m.Fasting),
+      },
+      {
+        path: 'poop',
+        title: 'Bowel movements',
+        loadComponent: () => import('./pages/poop').then((m) => m.Poop),
+      },
+      {
         path: 'profile',
         title: 'Profile',
         loadComponent: () => import('./pages/profile').then((m) => m.Profile),

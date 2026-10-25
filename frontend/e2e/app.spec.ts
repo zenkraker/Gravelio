@@ -260,6 +260,47 @@ test('save health targets and keep them after reload', async ({ page }) => {
   await expect(page.getByLabel('Water target (ml)')).toHaveValue('2000');
 });
 
+test('start and end a fast, then delete it', async ({ page }) => {
+  await signIn(page);
+  await openHealth(page, 'Fasting');
+  await expect(page.getByRole('heading', { name: 'Fasting', level: 1 })).toBeVisible();
+
+  await page.getByLabel('Start time').fill('2026-02-18T20:00');
+  await page.getByRole('button', { name: 'Start fast' }).click();
+  await expect(page.getByText('Fast started')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fasting in progress' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'End fast' }).click();
+  await expect(page.getByText('Fast ended')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fasting in progress' })).toHaveCount(0);
+  await expect(page.getByRole('row', { name: /Feb 18, 2026/ })).toHaveCount(1);
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the fast from/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 18, 2026/ })).toHaveCount(0);
+});
+
+test('log and delete a bowel movement', async ({ page }) => {
+  await signIn(page);
+  await openHealth(page, 'Bowel movements');
+  await expect(page.getByRole('heading', { name: 'Bowel movements', level: 1 })).toBeVisible();
+
+  await page.getByLabel('Date and time').fill('2026-02-19T08:00');
+  await page.getByLabel('Notes').fill('e2e');
+  await page.getByRole('button', { name: 'Save record' }).click();
+  await expect(page.getByText('Bowel movement saved')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Feb 19, 2026/ })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: /Smooth soft sausage/ })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Brown', exact: true })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the bowel movement from/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 19, 2026/ })).toHaveCount(0);
+});
+
 test('follow a user, accept the request, and see their public activity in the feed', async ({
   page,
 }) => {

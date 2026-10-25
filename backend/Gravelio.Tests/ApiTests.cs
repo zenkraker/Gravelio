@@ -33,6 +33,14 @@ public class ApiTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Api_responses_are_not_browser_cacheable()
+    {
+        var admin = await api.LoginAsync();
+        var response = await admin.Http.GetAsync("/api/v1/users/me");
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
+    [Fact]
     public async Task The_fifth_wrong_password_locks_the_account()
     {
         var admin = await api.LoginAsync();

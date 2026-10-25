@@ -197,6 +197,36 @@ export interface HealthTargets {
   poop_count: number | null;
 }
 
+export interface FastingEntry {
+  id: number;
+  fast_start_time: string;
+  fast_end_time: string | null;
+  target_duration_seconds: number | null;
+  actual_duration_seconds: number | null;
+  fasting_type: string | null;
+  status: 'in_progress' | 'completed' | 'broken' | 'cancelled';
+  notes: string | null;
+  source: string | null;
+}
+
+export interface FastingStats {
+  total_fasts: number;
+  current_streak: number;
+  longest_streak: number;
+  avg_duration_seconds: number | null;
+  total_fasting_seconds: number;
+  completion_rate: number;
+}
+
+export interface PoopEntry {
+  id: number;
+  date_time: string;
+  bristol_type: number | null;
+  color: string | null;
+  notes: string | null;
+  source: string | null;
+}
+
 export interface PrivacySettings {
   default_activity_visibility: number;
   hide_activity_start_time: boolean;

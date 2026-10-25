@@ -69,6 +69,12 @@ public static class QueryExtensions
     public static IQueryable<HealthWater> OwnedBy(this IQueryable<HealthWater> water, int userId, int id) =>
         water.Where(w => w.Id == id && w.UserId == userId);
 
+    public static IQueryable<HealthFasting> OwnedBy(this IQueryable<HealthFasting> fasts, int userId, int id) =>
+        fasts.Where(f => f.Id == id && f.UserId == userId);
+
+    public static IQueryable<HealthPoop> OwnedBy(this IQueryable<HealthPoop> poops, int userId, int id) =>
+        poops.Where(p => p.Id == id && p.UserId == userId);
+
     public static IQueryable<GearComponent> OwnedBy(this IQueryable<GearComponent> components, int userId, int gearId, int id) =>
         components.Where(c => c.Id == id && c.GearId == gearId && c.Gear.UserId == userId);
 
