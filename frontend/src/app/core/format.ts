@@ -45,3 +45,21 @@ export function speedValue(mps: number, units: Units): number {
 
 /** Running-like activities read better as pace than speed. */
 export const PACE_TYPES = new Set([1, 2, 3, 11, 12, 31, 34, 40, 44]);
+
+/** Shows an instant in the timezone the activity happened in. */
+export function formatDateTime(iso: string, timeZone: string | null): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: timeZone ?? 'UTC',
+  }).format(Date.parse(iso));
+}
+
+export function elevationValue(meters: number, units: Units): number {
+  return units === 'imperial' ? meters * FT_PER_M : meters;
+}
+
+/** Seconds per kilometre (or mile) from the stored seconds per metre. */
+export function paceSeconds(secPerMeter: number, units: Units): number {
+  return secPerMeter * (units === 'imperial' ? KM_PER_MILE * 1000 : 1000);
+}

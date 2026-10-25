@@ -28,6 +28,14 @@ pnpm test                # ng test (Vitest via @angular/build:unit-test)
 pnpm build               # outputs to dist/frontend/browser (served by nginx in the web image)
 pnpm exec ng lint        # angular-eslint gate, including template accessibility rules
 pnpm exec prettier --check .   # formatting gate (.prettierrc)
+pnpm e2e                 # Playwright + axe against the running app (needs the API up; `pnpm start` is launched for you)
+E2E_BASE_URL=http://localhost:8080 E2E_ADMIN_PASSWORD=… pnpm e2e   # same suite against the Docker stack
+```
+
+Docker (repo root; copy `.env.example` to `.env` first):
+
+```bash
+docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx web on :8080
 ```
 
 ## Working rules
@@ -52,14 +60,15 @@ pnpm exec prettier --check .   # formatting gate (.prettierrc)
   - Login is rate-limited per IP with `Microsoft.AspNetCore.RateLimiting`.
 - Users only ever see their own activities. Queries filter by the signed-in user's id, and another user's resource returns 404, not 403. Admin-only routes require the `admin` role.
 - The first admin is seeded on an empty database from `Admin:Password`, or generated and logged once.
-- Configuration is bound with the options pattern plus `ValidateDataAnnotations().ValidateOnStart()`, so bad config fails at startup, not on first use.
+- Configuration is bound with the options pattern plus `ValidateDataAnnotations().ValidateOnStart()`, so bad config fails at startup, not on first use. Docker Compose passes unset variables as empty strings, so optional string options must treat blank as unset.
 - `Database.MigrateAsync()` runs at startup only in Development. Production applies an EF migration bundle as a one-shot step before the API container starts.
-- Deployment is two images: the API image (the API serves no static files), and a web image where nginx serves the Angular build and reverse-proxies `/api` to the API. Keeping one origin is what lets the SameSite=Strict auth cookie work.
+- Deployment is two images, built from the repo root with `docker/api.Dockerfile` (targets `migrate` and `api`) and `docker/web.Dockerfile`: the API image (the API serves no static files), and a web image where nginx serves the Angular build and reverse-proxies `/api` to the API. Keeping one origin is what lets the SameSite=Strict auth cookie work. nginx also sets the CSP, so a new external origin (tiles, fonts, APIs) needs `docker/nginx.conf` updated.
 - Observability uses OpenTelemetry for logs, metrics and traces, with ASP.NET Core, HttpClient and Npgsql instrumentation. OTLP export happens only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; otherwise logs go to the console only.
 - Data access:
   - Async all the way, passing the endpoint's `CancellationToken` into EF Core. Never `.Result`, `.Wait()` or `Task.Run` around synchronous code.
   - Reads use `AsNoTracking()` and project to DTOs in the query.
   - List endpoints are paged.
+- The XSRF middleware must run after `UseAuthentication` and before `UseAuthorization`: authorization short-circuits 401s, and the SPA gets its first XSRF token from the 401 response of `GET /users/me`.
 - Never read `HttpContext` after the request completes or from background work. Background work creates its own scope through `IServiceScopeFactory`.
 - Outbound HTTP (e.g. Strava, Garmin) goes only through `IHttpClientFactory`.
 - Background and scheduled work runs in `BackgroundService` implementations.

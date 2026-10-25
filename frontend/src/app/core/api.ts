@@ -72,20 +72,17 @@ export const StreamType = {
   Temperature: 8,
 } as const;
 
-export interface TokenResponse {
-  access_token: string;
-  expires_in: number;
-}
-
 export interface Problem {
-  detail?: string;
   title?: string;
-  errors?: Record<string, string[]>;
+  detail?: string;
+  errors?: { name: string; reason: string }[];
 }
 
 /** Best human-readable message from an RFC 7807 problem response. */
 export function problemMessage(err: unknown): string {
-  const p = (err as { error?: Problem })?.error;
-  if (p?.errors) return Object.values(p.errors).flat().join(' ');
-  return p?.detail ?? p?.title ?? 'Something went wrong';
+  const problem = (err as { error?: Problem })?.error;
+  const reasons = problem?.errors?.map((e) => e.reason).filter(Boolean);
+  return reasons?.length
+    ? reasons.join(' ')
+    : (problem?.detail ?? problem?.title ?? $localize`Something went wrong`);
 }
