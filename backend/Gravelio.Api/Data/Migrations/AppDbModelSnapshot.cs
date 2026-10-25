@@ -302,6 +302,143 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("GearComponents");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.HealthSleep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AvgHeartRate")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AvgRespiration")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("AvgSkinTempDeviation")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<int?>("AvgSleepStress")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AvgSpo2")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AvgStressLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AwakeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AwakeCountScore")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("AwakeSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DeepPercentageScore")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DeepSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GarminconnectSleepId")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("HighestRespiration")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("HighestSpo2")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HrvStatus")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LightPercentageScore")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("LightSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LowestRespiration")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LowestSpo2")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxHeartRate")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinHeartRate")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NapTimeSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RemPercentageScore")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("RemSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RestingHeartRate")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RestlessMomentsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SleepEndTimeGmt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SleepEndTimeLocal")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SleepScoreDuration")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SleepScoreOverall")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SleepScoreQuality")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SleepStages")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("SleepStartTimeGmt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SleepStartTimeLocal")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SleepStressScore")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("TotalSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UnmeasurableSleepSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("HealthSleeps");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.HealthStep", b =>
                 {
                     b.Property<int>("Id")
@@ -770,6 +907,15 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gear");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthSleep", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.HealthStep", b =>

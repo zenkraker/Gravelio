@@ -23,7 +23,7 @@ Back up the `db-data` volume (or a `pg_dump`) and, separately, the `api-keys` vo
 
 ## Status
 
-Gravelio is a work in progress. Today: sign-in, user management, importing, listing and viewing activities, gear tracking with components and per-activity defaults, weight/body-composition and daily step readings, following other users with their activity feed, and per-user activity privacy (default visibility and hide flags). Not yet ported from Endurain: anonymous public profiles and activity links, sleep/water/fasting health trackers and health targets, notifications, server settings and email, MFA and API keys, and the Strava and Garmin integrations.
+Gravelio is a work in progress. Today: sign-in, user management, importing, listing and viewing activities, gear tracking with components and per-activity defaults, weight/body-composition, daily steps and sleep readings, following other users with their activity feed, and per-user activity privacy (default visibility and hide flags). Not yet ported from Endurain: anonymous public profiles and activity links, water/fasting health trackers and health targets, notifications, server settings and email, MFA and API keys, and the Strava and Garmin integrations.
 
 ## Develop
 

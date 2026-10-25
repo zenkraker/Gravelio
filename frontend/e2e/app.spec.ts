@@ -191,6 +191,31 @@ test('log steps, replace the count the same day, delete it', async ({ page }) =>
   await expect(page.getByRole('row', { name: /Feb 15, 2026/ })).toHaveCount(0);
 });
 
+test('log a sleep record, see the computed score, delete it', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('link', { name: 'Sleep', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Sleep', level: 1 })).toBeVisible();
+
+  await page.getByLabel('Date', { exact: true }).fill('2026-02-16');
+  await page.getByLabel('Total sleep (hours)').fill('8');
+  await page.getByLabel('Deep sleep (minutes)').fill('90');
+  await page.getByLabel('Light sleep (minutes)').fill('240');
+  await page.getByLabel('REM sleep (minutes)').fill('120');
+  await page.getByLabel('Awake (minutes)').fill('10');
+  await page.getByLabel('Awakenings').fill('1');
+  await page.getByLabel('Average stress').fill('20');
+  await page.getByRole('button', { name: 'Save sleep' }).click();
+  await expect(page.getByText('Sleep saved')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Feb 16, 2026/ })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: /95/ })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /Excellent/ })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the sleep record from 2026-02-16/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 16, 2026/ })).toHaveCount(0);
+});
+
 test('follow a user, accept the request, and see their public activity in the feed', async ({
   page,
 }) => {

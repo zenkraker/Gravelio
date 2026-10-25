@@ -162,6 +162,24 @@ export interface StepEntry {
   source: string | null;
 }
 
+export interface SleepEntry {
+  id: number;
+  date: string;
+  sleep_start_time_local: string | null;
+  sleep_end_time_local: string | null;
+  total_sleep_seconds: number | null;
+  deep_sleep_seconds: number | null;
+  light_sleep_seconds: number | null;
+  rem_sleep_seconds: number | null;
+  awake_sleep_seconds: number | null;
+  awake_count: number | null;
+  avg_sleep_stress: number | null;
+  sleep_score_overall: number | null;
+  sleep_score_duration: string | null;
+  sleep_score_quality: string | null;
+  source: string | null;
+}
+
 export interface PrivacySettings {
   default_activity_visibility: number;
   hide_activity_start_time: boolean;

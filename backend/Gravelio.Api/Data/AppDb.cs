@@ -187,6 +187,55 @@ public class HealthStep
     public string? Source { get; set; }
 }
 
+/// One sleep session per user and day, with the metrics a device reports and scores computed here.
+public class HealthSleep
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateOnly Date { get; set; }
+    public DateTime? SleepStartTimeGmt { get; set; }
+    public DateTime? SleepEndTimeGmt { get; set; }
+    public DateTime? SleepStartTimeLocal { get; set; }
+    public DateTime? SleepEndTimeLocal { get; set; }
+    public int? TotalSleepSeconds { get; set; }
+    public int? NapTimeSeconds { get; set; }
+    public int? UnmeasurableSleepSeconds { get; set; }
+    public int? DeepSleepSeconds { get; set; }
+    public int? LightSleepSeconds { get; set; }
+    public int? RemSleepSeconds { get; set; }
+    public int? AwakeSleepSeconds { get; set; }
+    public int? AvgHeartRate { get; set; }
+    public int? MinHeartRate { get; set; }
+    public int? MaxHeartRate { get; set; }
+    public int? AvgSpo2 { get; set; }
+    public int? LowestSpo2 { get; set; }
+    public int? HighestSpo2 { get; set; }
+    public int? AvgRespiration { get; set; }
+    public int? LowestRespiration { get; set; }
+    public int? HighestRespiration { get; set; }
+    public int? AvgStressLevel { get; set; }
+    public int? AwakeCount { get; set; }
+    public int? RestlessMomentsCount { get; set; }
+    public int? SleepScoreOverall { get; set; }
+    public string? SleepScoreDuration { get; set; }
+    public string? SleepScoreQuality { get; set; }
+    /// Set by integrations (e.g. "garmin"); null for manual entries.
+    public string? GarminconnectSleepId { get; set; }
+    /// Sleep stage intervals as a JSON array.
+    public string? SleepStages { get; set; }
+    /// Set by integrations (e.g. "garmin"); null for manual entries.
+    public string? Source { get; set; }
+    public string? HrvStatus { get; set; }
+    public int? RestingHeartRate { get; set; }
+    public decimal? AvgSkinTempDeviation { get; set; }
+    public string? AwakeCountScore { get; set; }
+    public string? RemPercentageScore { get; set; }
+    public string? DeepPercentageScore { get; set; }
+    public string? LightPercentageScore { get; set; }
+    public int? AvgSleepStress { get; set; }
+    public string? SleepStressScore { get; set; }
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
@@ -196,6 +245,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
     public DbSet<HealthWeight> HealthWeights => Set<HealthWeight>();
     public DbSet<HealthStep> HealthSteps => Set<HealthStep>();
+    public DbSet<HealthSleep> HealthSleeps => Set<HealthSleep>();
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
@@ -225,6 +275,10 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
             b.Entity<HealthWeight>().Property(p).HasPrecision(10, 2);
         b.Entity<HealthStep>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<HealthStep>().HasIndex(s => new { s.UserId, s.Date }).IsUnique();
+        b.Entity<HealthSleep>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthSleep>().HasIndex(s => new { s.UserId, s.Date }).IsUnique();
+        b.Entity<HealthSleep>().Property(s => s.SleepStages).HasColumnType("jsonb");
+        b.Entity<HealthSleep>().Property(s => s.AvgSkinTempDeviation).HasPrecision(10, 2);
         b.Entity<Follow>().HasOne(f => f.Follower).WithMany().HasForeignKey(f => f.FollowerId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Follow>().HasOne(f => f.Followee).WithMany().HasForeignKey(f => f.FolloweeId).OnDelete(DeleteBehavior.Cascade);
         // One relationship per direction; the follow endpoint relies on this to reject parallel requests.

@@ -38,6 +38,8 @@ services:
       Admin__Email: ${ADMIN_EMAIL:-}
       # Set to false only to try Gravelio over plain http (browsers drop Secure cookies there).
       Auth__SecureCookies: ${SECURE_COOKIES:-true}
+      # Per-IP login limit. Keep the default in production; the e2e job raises it for its many sign-ins.
+      Auth__LoginAttemptsPerMinute: ${LOGIN_ATTEMPTS_PER_MINUTE:-10}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:

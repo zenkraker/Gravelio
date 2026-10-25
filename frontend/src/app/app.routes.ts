@@ -54,6 +54,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/steps').then((m) => m.Steps),
       },
       {
+        path: 'sleep',
+        title: 'Sleep',
+        loadComponent: () => import('./pages/sleep').then((m) => m.Sleep),
+      },
+      {
         path: 'profile',
         title: 'Profile',
         loadComponent: () => import('./pages/profile').then((m) => m.Profile),
