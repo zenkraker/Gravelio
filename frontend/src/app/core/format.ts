@@ -63,3 +63,16 @@ export function elevationValue(meters: number, units: Units): number {
 export function paceSeconds(secPerMeter: number, units: Units): number {
   return secPerMeter * (units === 'imperial' ? KM_PER_MILE * 1000 : 1000);
 }
+
+/** Forms show distances in the user's unit (km or mi) while the API stores meters. */
+export function metersToDisplay(meters: number, units: Units): number {
+  return Math.round((meters / (units === 'imperial' ? KM_PER_MILE * 1000 : 1000)) * 100) / 100;
+}
+
+export function displayToMeters(value: number, units: Units): number {
+  return value * (units === 'imperial' ? KM_PER_MILE * 1000 : 1000);
+}
+
+export function distanceUnitLabel(units: Units): string {
+  return units === 'imperial' ? $localize`mi` : $localize`km`;
+}

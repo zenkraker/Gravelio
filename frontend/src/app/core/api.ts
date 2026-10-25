@@ -16,6 +16,7 @@ export interface User {
   max_heart_rate: number | null;
   first_day_of_week: string;
   timezone: string;
+  currency: 'euro' | 'dollar' | 'pound';
 }
 
 export interface Activity {
@@ -45,6 +46,7 @@ export interface Activity {
   visibility: number;
   tracker_manufacturer: string | null;
   tracker_model: string | null;
+  gear_id: number | null;
 }
 
 export interface ActivityPage {
@@ -52,6 +54,47 @@ export interface ActivityPage {
   total: number;
   page: number;
   page_size: number;
+}
+
+export interface Gear {
+  id: number;
+  nickname: string;
+  brand: string | null;
+  model: string | null;
+  gear_type: number;
+  active: boolean;
+  initial_distance: number;
+  purchase_value: number | null;
+  created_at: string;
+  total_distance: number;
+  activity_count: number;
+}
+
+export interface GearPage {
+  items: Gear[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface GearComponent {
+  id: number;
+  gear_id: number;
+  type: string;
+  brand: string | null;
+  model: string | null;
+  purchase_date: string;
+  retired_date: string | null;
+  active: boolean;
+  expected_distance: number | null;
+  purchase_value: number | null;
+  used_distance: number;
+}
+
+export interface DefaultGearSlot {
+  activity_type: number;
+  gear_type: number;
+  gear_id: number | null;
 }
 
 export type Waypoint = { time: string } & Record<string, number | string>;

@@ -7,10 +7,39 @@ using Microsoft.EntityFrameworkCore;
 namespace Gravelio.Api.Gears;
 
 public sealed record ComponentRead(int Id, int GearId, string Type, string? Brand, string? Model, DateOnly PurchaseDate, DateOnly? RetiredDate,
-    bool Active, double? ExpectedDistance, decimal? PurchaseValue)
+    bool Active, double? ExpectedDistance, decimal? PurchaseValue, double UsedDistance)
 {
-    public static ComponentRead From(GearComponent c) =>
-        new(c.Id, c.GearId, c.Type, c.Brand, c.Model, c.PurchaseDate, c.RetiredDate, c.Active, c.ExpectedDistance, c.PurchaseValue);
+    public static ComponentRead From(GearComponent c, double usedDistance) =>
+        new(c.Id, c.GearId, c.Type, c.Brand, c.Model, c.PurchaseDate, c.RetiredDate, c.Active, c.ExpectedDistance, c.PurchaseValue, usedDistance);
+}
+
+static class ComponentUsage
+{
+    /// Distance covered on the gear from the day a component was bought until the day it was retired, in meters.
+    /// Days are compared in UTC, so a ride near midnight can land on the neighbouring day.
+    public static async Task<Dictionary<int, double>> UsedAsync(AppDb db, int userId, int gearId, IReadOnlyCollection<GearComponent> components, CancellationToken ct)
+    {
+        if (components.Count == 0) return [];
+        var rides = await db.Activities.AsNoTracking().Where(a => a.GearId == gearId && a.UserId == userId)
+            .Select(a => new { a.StartTime, a.Distance }).ToListAsync(ct);
+        return components.ToDictionary(c => c.Id, c =>
+        {
+            var from = c.PurchaseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var until = c.RetiredDate?.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            return (double)rides.Where(r => r.StartTime >= from && (until is null || r.StartTime < until)).Sum(r => r.Distance);
+        });
+    }
+
+    public static async Task<ComponentRead> ReadAsync(AppDb db, int userId, GearComponent component, CancellationToken ct) =>
+        ComponentRead.From(component, (await UsedAsync(db, userId, component.GearId, [component], ct))[component.Id]);
+}
+
+public sealed class ListComponentTypesEndpoint : EndpointWithoutRequest<Dictionary<int, string[]>>
+{
+    public override void Configure() => Get("/gears/component-types");
+
+    public override Task HandleAsync(CancellationToken ct) =>
+        Send.OkAsync(Enumerable.Range(GearTypes.Bike, GearTypes.WaterSportsBoard).ToDictionary(t => t, t => GearTypes.ComponentTypesFor(t).Order().ToArray()), ct);
 }
 
 public sealed record GearComponentsRequest(int Id);
@@ -27,7 +56,8 @@ public sealed class ListComponentsEndpoint(AppDb db) : Endpoint<GearComponentsRe
             return;
         }
         var components = await db.GearComponents.AsNoTracking().Where(c => c.GearId == req.Id).OrderBy(c => c.Type).ThenBy(c => c.PurchaseDate).ToListAsync(ct);
-        await Send.OkAsync(components.Select(ComponentRead.From).ToList(), ct);
+        var used = await ComponentUsage.UsedAsync(db, User.UserId(), req.Id, components, ct);
+        await Send.OkAsync(components.Select(c => ComponentRead.From(c, used[c.Id])).ToList(), ct);
     }
 }
 
@@ -78,7 +108,7 @@ public sealed class CreateComponentEndpoint(AppDb db) : Endpoint<ComponentWriteR
         };
         db.GearComponents.Add(component);
         await db.SaveChangesAsync(ct);
-        await Send.CreatedAtAsync<ListComponentsEndpoint>(new { id = gear.Id }, ComponentRead.From(component), cancellation: ct);
+        await Send.CreatedAtAsync<ListComponentsEndpoint>(new { id = gear.Id }, await ComponentUsage.ReadAsync(db, User.UserId(), component, ct), cancellation: ct);
     }
 }
 
@@ -100,7 +130,7 @@ public sealed class UpdateComponentEndpoint(AppDb db) : Endpoint<ComponentWriteR
         (component.Type, component.Brand, component.Model, component.PurchaseDate, component.RetiredDate, component.Active, component.ExpectedDistance, component.PurchaseValue) =
             (req.Type, req.Brand, req.Model, req.PurchaseDate, req.RetiredDate, req.Active && req.RetiredDate is null, req.ExpectedDistance, req.PurchaseValue);
         await db.SaveChangesAsync(ct);
-        await Send.OkAsync(ComponentRead.From(component), ct);
+        await Send.OkAsync(await ComponentUsage.ReadAsync(db, userId, component, ct), ct);
     }
 }
 

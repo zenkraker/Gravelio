@@ -92,6 +92,43 @@ public class GearTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Component_wear_counts_only_rides_between_buying_and_retiring_it()
+    {
+        var admin = await api.LoginAsync();
+        int bike = await CreateAsync(admin, Bike("Wear bike"));
+        int rideId = await UploadRideAsync(admin, 6); // 3,618 m on 2026-06-06
+        await admin.Http.PutAsJsonAsync($"/api/v1/activities/{rideId}/gear", new { GearId = bike }, ApiClient.Json);
+
+        async Task<double> UsedAsync(string type, string purchased, string? retired)
+        {
+            var response = await PostComponentAsync(admin, bike, type, new { PurchaseDate = purchased, RetiredDate = retired });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return (await response.Content.ReadFromJsonAsync<JsonElement>(ApiClient.Json)).GetProperty("used_distance").GetDouble();
+        }
+        Assert.Equal(3618, await UsedAsync("chain", "2026-05-01", null)); // bought before the ride, still fitted
+        Assert.Equal(0, await UsedAsync("saddle", "2026-06-07", null)); // bought after the ride
+        Assert.Equal(0, await UsedAsync("fork", "2026-05-01", "2026-06-05")); // retired before the ride
+        Assert.Equal(3618, await UsedAsync("stem", "2026-06-06", "2026-06-06")); // bought and retired on the ride's own day
+
+        var listed = await admin.GetJsonAsync<JsonElement[]>($"{Gears}/{bike}/components");
+        Assert.Equal(4, listed.Length);
+        Assert.Equal(3618, listed.Single(c => c.GetProperty("type").GetString() == "chain").GetProperty("used_distance").GetDouble());
+    }
+
+    [Fact]
+    public async Task The_server_lists_which_component_types_each_gear_type_allows()
+    {
+        var admin = await api.LoginAsync();
+        var types = await admin.GetJsonAsync<Dictionary<string, string[]>>($"{Gears}/component-types");
+
+        Assert.Contains("chain", types["1"]);
+        Assert.DoesNotContain("sail", types["1"]);
+        Assert.Contains("laces", types["2"]);
+        Assert.Empty(types["3"]); // wetsuits carry no components
+        Assert.Equal(8, types.Count);
+    }
+
+    [Fact]
     public async Task Another_users_gear_cannot_be_put_on_my_activity()
     {
         var admin = await api.LoginAsync();
