@@ -236,6 +236,30 @@ public class HealthSleep
     public string? SleepStressScore { get; set; }
 }
 
+/// One daily water total per user; posts add to the day's amount.
+public class HealthWater
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateOnly Date { get; set; }
+    public decimal AmountMl { get; set; }
+    /// Set by integrations (e.g. "garmin"); null for manual entries.
+    public string? Source { get; set; }
+}
+
+/// One row of health goals per user.
+public class HealthTarget
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public decimal? Weight { get; set; }
+    public int? Steps { get; set; }
+    public int? Sleep { get; set; }
+    public int? Fasting { get; set; }
+    public decimal? WaterMl { get; set; }
+    public int? PoopCount { get; set; }
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
@@ -246,6 +270,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<HealthWeight> HealthWeights => Set<HealthWeight>();
     public DbSet<HealthStep> HealthSteps => Set<HealthStep>();
     public DbSet<HealthSleep> HealthSleeps => Set<HealthSleep>();
+    public DbSet<HealthWater> HealthWaters => Set<HealthWater>();
+    public DbSet<HealthTarget> HealthTargets => Set<HealthTarget>();
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
@@ -279,6 +305,13 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<HealthSleep>().HasIndex(s => new { s.UserId, s.Date }).IsUnique();
         b.Entity<HealthSleep>().Property(s => s.SleepStages).HasColumnType("jsonb");
         b.Entity<HealthSleep>().Property(s => s.AvgSkinTempDeviation).HasPrecision(10, 2);
+        b.Entity<HealthWater>().HasOne<User>().WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthWater>().HasIndex(w => new { w.UserId, w.Date }).IsUnique();
+        b.Entity<HealthWater>().Property(w => w.AmountMl).HasPrecision(10, 2);
+        b.Entity<HealthTarget>().HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthTarget>().HasIndex(t => t.UserId).IsUnique();
+        b.Entity<HealthTarget>().Property(t => t.Weight).HasPrecision(10, 2);
+        b.Entity<HealthTarget>().Property(t => t.WaterMl).HasPrecision(10, 2);
         b.Entity<Follow>().HasOne(f => f.Follower).WithMany().HasForeignKey(f => f.FollowerId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Follow>().HasOne(f => f.Followee).WithMany().HasForeignKey(f => f.FolloweeId).OnDelete(DeleteBehavior.Cascade);
         // One relationship per direction; the follow endpoint relies on this to reject parallel requests.

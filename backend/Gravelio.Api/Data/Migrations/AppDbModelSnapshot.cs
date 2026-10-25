@@ -467,6 +467,74 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("HealthSteps");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.HealthTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("Fasting")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PoopCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Sleep")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Steps")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("WaterMl")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<decimal?>("Weight")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("HealthTargets");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthWater", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountMl")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("HealthWaters");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.HealthWeight", b =>
                 {
                     b.Property<int>("Id")
@@ -919,6 +987,24 @@ namespace Gravelio.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.HealthStep", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthTarget", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthWater", b =>
                 {
                     b.HasOne("Gravelio.Api.Data.User", null)
                         .WithMany()

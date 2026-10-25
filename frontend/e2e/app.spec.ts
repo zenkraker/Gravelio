@@ -44,6 +44,11 @@ async function signOut(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/login$/);
 }
 
+async function openHealth(page: Page, name: string): Promise<void> {
+  await page.getByRole('button', { name: 'Health', exact: true }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
 /** The SPA's antiforgery token, echoed the same way Angular's XSRF support does. */
 async function xsrf(page: Page): Promise<string> {
   const token = (await page.context().cookies()).find((c) => c.name === 'XSRF-TOKEN')?.value;
@@ -149,7 +154,7 @@ test('add gear, give it a component, attach it to an activity; save the profile'
 
 test('log a weight reading, replace it the same day, delete it', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: 'Weight', exact: true }).click();
+  await openHealth(page, 'Weight');
   await expect(page.getByRole('heading', { name: 'Weight', level: 1 })).toBeVisible();
 
   const save = async (kg: string) => {
@@ -171,7 +176,7 @@ test('log a weight reading, replace it the same day, delete it', async ({ page }
 
 test('log steps, replace the count the same day, delete it', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: 'Steps', exact: true }).click();
+  await openHealth(page, 'Steps');
   await expect(page.getByRole('heading', { name: 'Steps', level: 1 })).toBeVisible();
 
   const save = async (steps: string) => {
@@ -193,7 +198,7 @@ test('log steps, replace the count the same day, delete it', async ({ page }) =>
 
 test('log a sleep record, see the computed score, delete it', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: 'Sleep', exact: true }).click();
+  await openHealth(page, 'Sleep');
   await expect(page.getByRole('heading', { name: 'Sleep', level: 1 })).toBeVisible();
 
   await page.getByLabel('Date', { exact: true }).fill('2026-02-16');
@@ -214,6 +219,45 @@ test('log a sleep record, see the computed score, delete it', async ({ page }) =
   await page.getByRole('button', { name: /Delete the sleep record from 2026-02-16/ }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('row', { name: /Feb 16, 2026/ })).toHaveCount(0);
+});
+
+test('add water twice, see the daily total, delete it', async ({ page }) => {
+  await signIn(page);
+  await openHealth(page, 'Water');
+  await expect(page.getByRole('heading', { name: 'Water', level: 1 })).toBeVisible();
+
+  const add = async (ml: string) => {
+    await page.getByLabel('Date', { exact: true }).fill('2026-02-17');
+    await page.getByLabel('Amount (ml)').fill(ml);
+    await page.getByRole('button', { name: 'Add water' }).click();
+    await expect(page.getByText('Water added')).toBeVisible();
+  };
+  await add('250');
+  await add('250');
+  await expect(page.getByRole('row', { name: /Feb 17, 2026/ })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: /500/ })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the water from 2026-02-17/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 17, 2026/ })).toHaveCount(0);
+});
+
+test('save health targets and keep them after reload', async ({ page }) => {
+  await signIn(page);
+  await openHealth(page, 'Targets');
+  await expect(page.getByRole('heading', { name: 'Health targets', level: 1 })).toBeVisible();
+  await page.getByLabel('Steps target').fill('10000');
+  await page.getByLabel('Sleep target (hours)').fill('8');
+  await page.getByLabel('Water target (ml)').fill('2000');
+  await page.getByRole('button', { name: 'Save targets' }).click();
+  await expect(page.getByText('Targets saved')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.reload();
+  await expect(page.getByLabel('Steps target')).toHaveValue('10000');
+  await expect(page.getByLabel('Sleep target (hours)')).toHaveValue('8');
+  await expect(page.getByLabel('Water target (ml)')).toHaveValue('2000');
 });
 
 test('follow a user, accept the request, and see their public activity in the feed', async ({

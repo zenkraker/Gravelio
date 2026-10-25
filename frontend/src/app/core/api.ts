@@ -180,6 +180,23 @@ export interface SleepEntry {
   source: string | null;
 }
 
+export interface WaterEntry {
+  id: number;
+  date: string;
+  amount_ml: number;
+  source: string | null;
+}
+
+export interface HealthTargets {
+  id: number;
+  weight: number | null;
+  steps: number | null;
+  sleep: number | null;
+  fasting: number | null;
+  water_ml: number | null;
+  poop_count: number | null;
+}
+
 export interface PrivacySettings {
   default_activity_visibility: number;
   hide_activity_start_time: boolean;

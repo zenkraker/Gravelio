@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { AuthService } from './core/auth';
 
@@ -14,6 +15,7 @@ import { AuthService } from './core/auth';
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
+    MatMenuModule,
   ],
   template: `
     <mat-toolbar>
@@ -30,30 +32,16 @@ import { AuthService } from './core/auth';
         <a mat-button routerLink="/gear" routerLinkActive="active" ariaCurrentWhenActive="page" i18n
           >Gear</a
         >
-        <a
-          mat-button
-          routerLink="/weight"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          i18n
-          >Weight</a
-        >
-        <a
-          mat-button
-          routerLink="/steps"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          i18n
-          >Steps</a
-        >
-        <a
-          mat-button
-          routerLink="/sleep"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          i18n
-          >Sleep</a
-        >
+        <button mat-button type="button" [matMenuTriggerFor]="healthMenu" i18n>
+          Health<mat-icon aria-hidden="true">expand_more</mat-icon>
+        </button>
+        <mat-menu #healthMenu="matMenu">
+          <a mat-menu-item routerLink="/weight" i18n>Weight</a>
+          <a mat-menu-item routerLink="/steps" i18n>Steps</a>
+          <a mat-menu-item routerLink="/sleep" i18n>Sleep</a>
+          <a mat-menu-item routerLink="/water" i18n>Water</a>
+          <a mat-menu-item routerLink="/targets" i18n>Targets</a>
+        </mat-menu>
         <a
           mat-button
           routerLink="/people"
