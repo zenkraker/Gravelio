@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gravelio</string>
+    <string name="title_activity_main">Gravelio</string>
+    <string name="package_name">io.gravelio.app</string>
+    <string name="custom_url_scheme">io.gravelio.app</string>
+</resources>

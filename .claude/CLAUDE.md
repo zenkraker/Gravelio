@@ -33,6 +33,16 @@ pnpm e2e                 # Playwright + axe against the running app (needs the A
 E2E_BASE_URL=http://localhost:8080 E2E_ADMIN_PASSWORD=… pnpm e2e   # same suite against the Docker stack
 ```
 
+Android app (`frontend/android`, Capacitor; needs Android Studio and its SDK, JDK 21):
+
+```bash
+export GRAVELIO_SERVER_URL=https://gravelio.example   # every cap command reads it (PowerShell: $env:GRAVELIO_SERVER_URL='...')
+pnpm cap:sync                                         # build the web app and write the instance URL into android/
+pnpm cap:open                                         # open the project in Android Studio
+cd android && ./gradlew assembleDebug                 # Windows: gradlew.bat assembleDebug
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 Docker (repo root; copy `.env.example` to `.env` and set `DB_PASSWORD` and `ADMIN_PASSWORD` first). CI (`.github/workflows/ci.yml`) runs every gate above plus the e2e suite against this stack:
 
 ```bash
@@ -171,6 +181,7 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - UI components come from Angular Material and the Angular CDK. Build a custom widget only when neither provides one.
 - Every user-facing string is translatable with `@angular/localize` (`i18n` attributes in templates, `$localize` in code). The app builds once per locale.
 
+- The Android app is a Capacitor WebView that loads the deployed instance (`frontend/capacitor.config.ts`), not the bundled assets talking to a remote API: the auth cookie is SameSite=Strict and Angular reads the XSRF token from `document.cookie`, so the SPA and `/api` must stay on one origin. `GRAVELIO_SERVER_URL` is required for every `cap` command; the native project is committed, the copied web assets and generated config are not.
 - `src/app/core/api.ts` mirrors the API's snake_case DTOs. Change both sides together.
 - All HTTP goes through `HttpClient`. Auth is the API's httpOnly cookie, so the SPA never handles tokens. Antiforgery uses Angular's built-in XSRF support (`withXsrfConfiguration`, `X-XSRF-TOKEN`). A 401 sends the user to `/login`.
 - Units are stored metric (meters, seconds, m/s, s/m pace) and converted only for display, via `core/format.ts` and the user's `units`.
