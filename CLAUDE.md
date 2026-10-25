@@ -18,14 +18,16 @@ cd backend/Gravelio.Api && dotnet ef migrations bundle                          
 dotnet format Gravelio.slnx --verify-no-changes                                    # formatting/analyzer gate
 ```
 
-Frontend (`frontend/`, Node ≥ 24.15 or ≥ 22.22.3):
+Frontend (`frontend/`, Node ≥ 24.15; pnpm pinned in `package.json` `packageManager`, and pnpm switches to that version itself):
 
 ```bash
-npm start        # ng serve, proxies /api to :5129 (proxy.conf.json)
-npm test         # ng test (Vitest via @angular/build:unit-test)
-npm run build    # outputs to dist/frontend/browser (served by nginx in the web image)
-npx ng lint      # angular-eslint gate, including template accessibility rules
-npx prettier --check .   # formatting gate (.prettierrc)
+npx get-pnpm             # once per machine (official installer; not Corepack, which Node 25+ no longer bundles)
+pnpm install
+pnpm start               # ng serve, proxies /api to :5129 (proxy.conf.json)
+pnpm test                # ng test (Vitest via @angular/build:unit-test)
+pnpm build               # outputs to dist/frontend/browser (served by nginx in the web image)
+pnpm exec ng lint        # angular-eslint gate, including template accessibility rules
+pnpm exec prettier --check .   # formatting gate (.prettierrc)
 ```
 
 ## Working rules
@@ -136,8 +138,9 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 
 ### Gravelio-specific frontend invariants
 
+- pnpm is the only package manager (`cli.packageManager` in `angular.json`, `packageManager` in `package.json`). Never use npm or yarn or commit their lockfiles. Upgrade pnpm with `pnpm self-update`, which updates the pin. Install scripts are denied by default; a new dependency's build script goes into `allowBuilds` in `pnpm-workspace.yaml` only after checking that it's actually needed.
 - Build, serve and test only through the Angular CLI builders (`@angular/build`, which wraps esbuild, Rolldown, Vite and Vitest). Configure them in `angular.json`; never add a `vite.config`, webpack config, Karma or Jest.
-- Before writing Angular code, use the `angular-cli` MCP server (registered in `.mcp.json` as `ng mcp`, which needs Node ≥ 24.15 on PATH): `get_best_practices` for version-matched rules and `search_documentation` for API lookups.
+- Before writing Angular code, use the `angular-cli` MCP server (registered in `.mcp.json` as `pnpm exec ng mcp`, which needs Node ≥ 24.15 and pnpm on PATH): `get_best_practices` for version-matched rules and `search_documentation` for API lookups.
 
 - End-to-end tests use `@playwright/test` against the running app, and every page gets an `@axe-core/playwright` scan. Any AXE violation fails the test.
 - UI components come from Angular Material and the Angular CDK. Build a custom widget only when neither provides one.

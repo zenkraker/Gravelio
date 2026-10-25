@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "angular-cli": {
-      "command": "npx",
-      "args": ["-y", "@angular/cli@22.2.4", "mcp", "--root", "frontend"]
+      "command": "pnpm",
+      "args": ["--dir", "frontend", "exec", "ng", "mcp"]
     }
   }
 }
