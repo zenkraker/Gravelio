@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet format Gravelio.slnx --verify-no-changes
+      # The integration tests start PostgreSQL with Testcontainers, using the runner's Docker.
+      - run: dotnet test Gravelio.slnx
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --global pnpm@12 # pnpm then switches to the version pinned in package.json
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --check .
+      - run: pnpm exec ng lint
+      - run: pnpm exec ng test --watch=false
+      - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      E2E_BASE_URL: http://localhost:8080
+      E2E_ADMIN_PASSWORD: Ci-Admin-Passw0rd!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Start the stack
+        run: |
+          printf 'DB_PASSWORD=%s\nADMIN_PASSWORD=%s\nSECURE_COOKIES=false\n' "$(openssl rand -hex 16)" "$E2E_ADMIN_PASSWORD" > .env
+          docker compose up -d --build
+          for i in $(seq 1 60); do curl -sf http://localhost:8080/api/v1/health && exit 0; sleep 2; done
+          docker compose logs
+          exit 1
+      - run: npm install --global pnpm@12
+      - working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+          pnpm e2e
