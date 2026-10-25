@@ -28,7 +28,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
 WORKDIR /app
 COPY --from=build /out/api .
 # Behind the web image's nginx (and any TLS-terminating proxy in front of it), honour X-Forwarded-* headers.
-ENV ASPNETCORE_HTTP_PORTS=8080 ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+ENV ASPNETCORE_HTTP_PORTS=8080 ASPNETCORE_FORWARDEDHEADERS_ENABLED=true DataProtection__KeysPath=/keys
+# The login-cookie key ring lives on its own volume (see docker-compose.yml), owned by the app user.
+RUN mkdir /keys && chown $APP_UID /keys
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Gravelio.Api.dll"]

@@ -19,7 +19,9 @@ services:
   migrate:
     build: { context: ., dockerfile: docker/api.Dockerfile, target: migrate }
     environment:
-      ConnectionStrings__Default: Host=db;Database=gravelio;Username=gravelio;Password=${DB_PASSWORD}
+      ConnectionStrings__Default: Host=db;Database=gravelio;Username=gravelio
+      # Npgsql reads the password from here, so a password with ; or = can't break the connection string.
+      PGPASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
     depends_on:
       db: { condition: service_healthy }
     restart: "no"
@@ -28,13 +30,18 @@ services:
     build: { context: ., dockerfile: docker/api.Dockerfile, target: api }
     restart: unless-stopped
     environment:
-      ConnectionStrings__Default: Host=db;Database=gravelio;Username=gravelio;Password=${DB_PASSWORD}
-      Admin__Password: ${ADMIN_PASSWORD:-}
+      ConnectionStrings__Default: Host=db;Database=gravelio;Username=gravelio
+      # Npgsql reads the password from here, so a password with ; or = can't break the connection string.
+      PGPASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      # Required: the first admin is never generated, because a generated password would end up in the logs.
+      Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env (12+ characters)}
       Admin__Email: ${ADMIN_EMAIL:-}
       # Set to false only to try Gravelio over plain http (browsers drop Secure cookies there).
       Auth__SecureCookies: ${SECURE_COOKIES:-true}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    volumes:
+      - api-keys:/keys
     depends_on:
       migrate: { condition: service_completed_successfully }
 
@@ -48,3 +55,5 @@ services:
 
 volumes:
   db-data:
+  # Login-cookie keys. Back it up with the database, but keep it separate: a database dump alone can't forge sessions.
+  api-keys:
