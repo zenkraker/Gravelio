@@ -9,10 +9,10 @@ namespace Gravelio.Api.Users;
 
 public sealed record UserRead(int Id, string Name, string Username, string Email, string AccessType, bool Active, string? City,
     DateOnly? Birthdate, string PreferredLanguage, string Gender, string Units, int? Height, int? MaxHeartRate,
-    string FirstDayOfWeek, string Timezone)
+    string FirstDayOfWeek, string Timezone, string Currency)
 {
     public static UserRead From(User u, bool isAdmin) => new(u.Id, u.Name, u.UserName!, u.Email!, isAdmin ? AppRoles.Admin : "regular", u.Active,
-        u.City, u.Birthdate, u.PreferredLanguage, u.Gender, u.Units, u.Height, u.MaxHeartRate, u.FirstDayOfWeek, u.Timezone);
+        u.City, u.Birthdate, u.PreferredLanguage, u.Gender, u.Units, u.Height, u.MaxHeartRate, u.FirstDayOfWeek, u.Timezone, u.Currency);
 }
 
 static class UserRules
@@ -20,6 +20,7 @@ static class UserRules
     public static readonly string[] Genders = ["male", "female", "unspecified"];
     public static readonly string[] Units = ["metric", "imperial"];
     public static readonly string[] AccessTypes = ["regular", AppRoles.Admin];
+    public static readonly string[] Currencies = ["euro", "dollar", "pound"];
     public static readonly string[] Days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
     // Letters, digits and dots, as in Endurain.
@@ -40,7 +41,7 @@ public sealed class GetMeEndpoint(UserManager<User> users) : EndpointWithoutRequ
 }
 
 public sealed record UpdateMeRequest(string Name, string Email, string? City, DateOnly? Birthdate, string PreferredLanguage,
-    string Gender, string Units, int? Height, int? MaxHeartRate, string FirstDayOfWeek, string Timezone);
+    string Gender, string Units, int? Height, int? MaxHeartRate, string FirstDayOfWeek, string Timezone, string Currency = "euro");
 
 public sealed class UpdateMeValidator : Validator<UpdateMeRequest>
 {
@@ -55,25 +56,26 @@ public sealed class UpdateMeValidator : Validator<UpdateMeRequest>
         RuleFor(x => x.Height).InclusiveBetween(50, 300);
         RuleFor(x => x.MaxHeartRate).InclusiveBetween(60, 250);
         RuleFor(x => x.FirstDayOfWeek).Must(UserRules.Days.Contains).WithMessage("Unknown day of week");
+        RuleFor(x => x.Currency).Must(UserRules.Currencies.Contains).WithMessage("Unknown currency");
         RuleFor(x => x.Timezone).Must(tz => TimeZoneInfo.TryFindSystemTimeZoneById(tz, out _)).WithMessage("Unknown timezone");
     }
 }
 
-public sealed class UpdateMeEndpoint(UserManager<User> users) : Endpoint<UpdateMeRequest, UserRead>
+public sealed class UpdateMeEndpoint(UserManager<User> users, SignInManager<User> signIn) : Endpoint<UpdateMeRequest, UserRead>
 {
     public override void Configure() => Put("/users/me");
 
     public override async Task HandleAsync(UpdateMeRequest req, CancellationToken ct)
     {
         var user = (await users.GetUserAsync(User))!;
-        (user.Name, user.City, user.Birthdate, user.PreferredLanguage, user.Gender, user.Units, user.Height, user.MaxHeartRate, user.FirstDayOfWeek, user.Timezone) =
-            (req.Name, req.City, req.Birthdate, req.PreferredLanguage, req.Gender, req.Units, req.Height, req.MaxHeartRate, req.FirstDayOfWeek, req.Timezone);
-        var result = await users.SetEmailAsync(user, req.Email);
+        (user.Name, user.City, user.Birthdate, user.PreferredLanguage, user.Gender, user.Units, user.Height, user.MaxHeartRate, user.FirstDayOfWeek, user.Timezone, user.Currency) =
+            (req.Name, req.City, req.Birthdate, req.PreferredLanguage, req.Gender, req.Units, req.Height, req.MaxHeartRate, req.FirstDayOfWeek, req.Timezone, req.Currency);
+        // SetEmailAsync rotates the security stamp, which signs every session out, so only call it when the email changed.
+        bool emailChanged = !string.Equals(user.Email, req.Email, StringComparison.OrdinalIgnoreCase);
+        var result = emailChanged ? await users.SetEmailAsync(user, req.Email) : IdentityResult.Success;
         if (result.Succeeded) result = await users.UpdateAsync(user);
-        if (!result.Succeeded)
-        {
-            ThrowError(UserRules.Describe(result), StatusCodes.Status409Conflict);
-        }
+        if (!result.Succeeded) ThrowError(UserRules.Describe(result), StatusCodes.Status409Conflict);
+        if (emailChanged) await signIn.RefreshSignInAsync(user); // keep this session; other devices sign in again
         await Send.OkAsync(UserRead.From(user, await users.IsInRoleAsync(user, AppRoles.Admin)), ct);
     }
 }

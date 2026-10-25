@@ -1,28 +1,14 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
+using static Gravelio.Tests.TestData;
 
 namespace Gravelio.Tests;
 
 [Collection("api")]
 public class ApiTests(ApiFixture api)
 {
-    static string Gpx(string name, DateTime start, int points = 60)
-    {
-        var pts = string.Concat(Enumerable.Range(0, points).Select(i =>
-            $"<trkpt lat=\"{38.7223 + i * 0.0005}\" lon=\"{-9.1393 + i * 0.0003}\"><ele>{100 + i}</ele><time>{start.AddSeconds(i * 10):yyyy-MM-ddTHH:mm:ssZ}</time></trkpt>"));
-        return $"<gpx xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><name>{name}</name><type>running</type><trkseg>{pts}</trkseg></trk></gpx>";
-    }
-
-    static MultipartFormDataContent Upload(string fileName, string content)
-    {
-        var file = new ByteArrayContent(Encoding.UTF8.GetBytes(content));
-        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        return new MultipartFormDataContent { { file, "file", fileName } };
-    }
-
     [Fact]
     public async Task Anonymous_requests_get_401_not_a_login_redirect()
     {

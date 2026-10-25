@@ -52,7 +52,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
 public sealed class ApiClient(HttpClient http)
 {
-    public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+    public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower, DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower };
 
     public HttpClient Http => http;
 

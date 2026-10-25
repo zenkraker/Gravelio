@@ -14,13 +14,13 @@ namespace Gravelio.Api.Activities;
 public sealed record ActivityRead(int Id, string? Name, string? Description, int Distance, int ActivityType, DateTime StartTime, DateTime EndTime,
     string? Timezone, double TotalElapsedTime, double TotalTimerTime, int? ElevationGain, int? ElevationLoss, double? Pace,
     double? AverageSpeed, double? MaxSpeed, int? AveragePower, int? MaxPower, int? NormalizedPower, int? AverageHr, int? MaxHr,
-    int? AverageCad, int? MaxCad, int? Calories, int Visibility, string? TrackerManufacturer, string? TrackerModel, DateTime CreatedAt)
+    int? AverageCad, int? MaxCad, int? Calories, int Visibility, string? TrackerManufacturer, string? TrackerModel, DateTime CreatedAt, int? GearId)
 {
     // An expression so EF Core can translate it and select only these columns.
     public static readonly Expression<Func<Activity, ActivityRead>> Projection = a => new ActivityRead(a.Id, a.Name, a.Description, a.Distance,
         a.ActivityType, a.StartTime, a.EndTime, a.Timezone, a.TotalElapsedTime, a.TotalTimerTime, a.ElevationGain, a.ElevationLoss, a.Pace,
         a.AverageSpeed, a.MaxSpeed, a.AveragePower, a.MaxPower, a.NormalizedPower, a.AverageHr, a.MaxHr, a.AverageCad, a.MaxCad, a.Calories,
-        a.Visibility, a.TrackerManufacturer, a.TrackerModel, a.CreatedAt);
+        a.Visibility, a.TrackerManufacturer, a.TrackerModel, a.CreatedAt, a.GearId);
 
     static readonly Func<Activity, ActivityRead> Compiled = Projection.Compile();
 
@@ -141,6 +141,31 @@ public sealed class UpdateActivityEndpoint(AppDb db) : Endpoint<UpdateActivityRe
     }
 }
 
+/// <see cref="GearId"/> of null removes the gear from the activity.
+public sealed record SetActivityGearRequest(int Id, int? GearId);
+
+public sealed class SetActivityGearEndpoint(AppDb db) : Endpoint<SetActivityGearRequest, ActivityRead>
+{
+    public override void Configure() => Put("/activities/{id:int}/gear");
+
+    public override async Task HandleAsync(SetActivityGearRequest req, CancellationToken ct)
+    {
+        var userId = User.UserId();
+        var activity = await db.Activities.FirstOrDefaultAsync(a => a.Id == req.Id && a.UserId == userId, ct);
+        if (activity is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+        // Another user's gear must look exactly like gear that doesn't exist.
+        if (req.GearId is { } gearId && !await db.Gears.AnyAsync(g => g.Id == gearId && g.UserId == userId, ct))
+            ThrowError(r => r.GearId, "Gear not found", StatusCodes.Status404NotFound);
+        activity.GearId = req.GearId;
+        await db.SaveChangesAsync(ct);
+        await Send.OkAsync(ActivityRead.From(activity), ct);
+    }
+}
+
 public sealed class DeleteActivityEndpoint(AppDb db) : Endpoint<ActivityIdRequest>
 {
     public override void Configure() => Delete("/activities/{id:int}");
@@ -214,7 +239,13 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
             ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         }
         var now = time.GetUtcNow().UtcDateTime;
-        foreach (var a in fresh) a.CreatedAt = now;
+        // Pre-select the user's default gear for each activity type (retired gear is skipped).
+        var defaults = await db.DefaultGears.Where(d => d.UserId == userId && d.Gear.Active).ToDictionaryAsync(d => d.ActivityType, d => d.GearId, ct);
+        foreach (var a in fresh)
+        {
+            a.CreatedAt = now;
+            if (defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
+        }
         db.Activities.AddRange(fresh);
         try
         {

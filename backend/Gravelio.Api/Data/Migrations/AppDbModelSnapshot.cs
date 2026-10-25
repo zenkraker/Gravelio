@@ -66,6 +66,9 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("GearId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("MaxCad")
                         .HasColumnType("integer");
 
@@ -113,6 +116,8 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GearId");
+
                     b.HasIndex("UserId", "StartTime")
                         .IsUnique();
 
@@ -145,6 +150,121 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("ActivityStreams");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.DefaultGear", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GearId");
+
+                    b.HasIndex("UserId", "ActivityType")
+                        .IsUnique();
+
+                    b.ToTable("DefaultGears");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.Gear", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Brand")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GearType")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("InitialDistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Model")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Nickname")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("PurchaseValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Nickname");
+
+                    b.ToTable("Gears");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.GearComponent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Brand")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("ExpectedDistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("GearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Model")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("PurchaseDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("PurchaseValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateOnly?>("RetiredDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GearId");
+
+                    b.ToTable("GearComponents");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.User", b =>
                 {
                     b.Property<int>("Id")
@@ -171,6 +291,10 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -388,6 +512,11 @@ namespace Gravelio.Api.Data.Migrations
 
             modelBuilder.Entity("Gravelio.Api.Data.Activity", b =>
                 {
+                    b.HasOne("Gravelio.Api.Data.Gear", null)
+                        .WithMany()
+                        .HasForeignKey("GearId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Gravelio.Api.Data.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -404,6 +533,45 @@ namespace Gravelio.Api.Data.Migrations
                         .HasForeignKey("ActivityId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.DefaultGear", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.Gear", "Gear")
+                        .WithMany()
+                        .HasForeignKey("GearId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Gear");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.Gear", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.GearComponent", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.Gear", "Gear")
+                        .WithMany("Components")
+                        .HasForeignKey("GearId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Gear");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
@@ -460,6 +628,11 @@ namespace Gravelio.Api.Data.Migrations
             modelBuilder.Entity("Gravelio.Api.Data.Activity", b =>
                 {
                     b.Navigation("Streams");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.Gear", b =>
+                {
+                    b.Navigation("Components");
                 });
 #pragma warning restore 612, 618
         }

@@ -17,6 +17,7 @@ public class User : IdentityUser<int>
     public int? MaxHeartRate { get; set; }
     public string FirstDayOfWeek { get; set; } = "monday";
     public string Timezone { get; set; } = "UTC";
+    public string Currency { get; set; } = "euro";
     public DateTime CreatedAt { get; set; }
 }
 
@@ -50,6 +51,7 @@ public class Activity
     public int Visibility { get; set; } = Visibilities.Private;
     public string? TrackerManufacturer { get; set; }
     public string? TrackerModel { get; set; }
+    public int? GearId { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<ActivityStream> Streams { get; set; } = [];
 }
@@ -75,10 +77,56 @@ public static class StreamTypes
     public const int Hr = 1, Power = 2, Cadence = 3, Elevation = 4, Speed = 5, Pace = 6, Map = 7, Temperature = 8;
 }
 
+public class Gear
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public required string Nickname { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public int GearType { get; set; }
+    public bool Active { get; set; } = true;
+    /// Meters already covered before the gear was added here.
+    public double InitialDistance { get; set; }
+    public decimal? PurchaseValue { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public List<GearComponent> Components { get; set; } = [];
+}
+
+public class GearComponent
+{
+    public int Id { get; set; }
+    public int GearId { get; set; }
+    public Gear Gear { get; set; } = null!;
+    public required string Type { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public DateOnly PurchaseDate { get; set; }
+    public DateOnly? RetiredDate { get; set; }
+    public bool Active { get; set; } = true;
+    /// Wear threshold in meters; the UI compares it with the gear's distance.
+    public double? ExpectedDistance { get; set; }
+    public decimal? PurchaseValue { get; set; }
+}
+
+/// The gear a user wants pre-selected for imported activities of one type.
+public class DefaultGear
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int ActivityType { get; set; }
+    public int GearId { get; set; }
+    public Gear Gear { get; set; } = null!;
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityStream> ActivityStreams => Set<ActivityStream>();
+    public DbSet<Gear> Gears => Set<Gear>();
+    public DbSet<GearComponent> GearComponents => Set<GearComponent>();
+    public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -88,6 +136,17 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime }).IsUnique();
         b.Entity<ActivityStream>().Property(s => s.Waypoints).HasColumnType("jsonb");
         b.Entity<ActivityStream>().HasIndex(s => new { s.ActivityId, s.StreamType }).IsUnique();
+        b.Entity<Gear>().HasOne(g => g.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Gear>().HasIndex(g => new { g.UserId, g.Nickname });
+        b.Entity<Gear>().Property(g => g.PurchaseValue).HasPrecision(12, 2);
+        b.Entity<GearComponent>().HasOne(c => c.Gear).WithMany(g => g.Components).HasForeignKey(c => c.GearId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<GearComponent>().Property(c => c.PurchaseValue).HasPrecision(12, 2);
+        // Deleting gear keeps the activities and just unlinks them.
+        b.Entity<Activity>().HasOne<Gear>().WithMany().HasForeignKey(a => a.GearId).OnDelete(DeleteBehavior.SetNull);
+        b.Entity<Activity>().HasIndex(a => a.GearId);
+        b.Entity<DefaultGear>().HasOne(d => d.Gear).WithMany().HasForeignKey(d => d.GearId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<DefaultGear>().HasOne<User>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<DefaultGear>().HasIndex(d => new { d.UserId, d.ActivityType }).IsUnique();
         b.Entity<Activity>().HasMany(a => a.Streams).WithOne().HasForeignKey(s => s.ActivityId).OnDelete(DeleteBehavior.Cascade);
     }
 }
