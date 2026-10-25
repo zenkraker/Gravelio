@@ -56,16 +56,6 @@ public sealed class AdminPasswordValidator : IPasswordValidator<User>
             : IdentityResult.Success;
 }
 
-/// Deactivated users can't sign in, and their existing cookies stop validating.
-public sealed class GravelioSignInManager(
-    UserManager<User> userManager, IHttpContextAccessor contextAccessor, IUserClaimsPrincipalFactory<User> claimsFactory,
-    IOptions<IdentityOptions> options, ILogger<SignInManager<User>> logger, IAuthenticationSchemeProvider schemes,
-    IUserConfirmation<User> confirmation)
-    : SignInManager<User>(userManager, contextAccessor, claimsFactory, options, logger, schemes, confirmation)
-{
-    public override async Task<bool> CanSignInAsync(User user) => user.Active && await base.CanSignInAsync(user);
-}
-
 public static class ClaimsPrincipalExtensions
 {
     public static int UserId(this ClaimsPrincipal user) => int.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -91,7 +81,7 @@ public static class AuthSetup
             })
             .AddRoles<IdentityRole<int>>()
             .AddEntityFrameworkStores<AppDb>()
-            .AddSignInManager<GravelioSignInManager>()
+            .AddSignInManager()
             .AddPasswordValidator<AdminPasswordValidator>();
         services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
         services.AddAuthorization();

@@ -28,36 +28,17 @@ public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> 
     public override async Task HandleAsync(LoginRequest req, CancellationToken ct)
     {
         var user = await users.FindByNameAsync(req.Username);
-        if (user is null)
+        if (user is not { Active: true })
         {
-            // Unknown users still pay for a hash so response time doesn't reveal which usernames exist.
+            // Unknown and deactivated users get the same 401 and still pay for a hash, so neither the response
+            // nor its timing reveals which accounts exist.
             users.PasswordHasher.HashPassword(new User { Name = "", UserName = "" }, req.Password);
-            AddError("Incorrect username or password");
-            await Send.ErrorsAsync(StatusCodes.Status401Unauthorized, ct);
-            return;
+            ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
         }
-        if (!user.Active)
-        {
-            AddError("Inactive user");
-            await Send.ErrorsAsync(StatusCodes.Status403Forbidden, ct);
-            return;
-        }
-
         var result = await signIn.PasswordSignInAsync(user, req.Password, isPersistent: true, lockoutOnFailure: true);
-        if (result.IsLockedOut)
-        {
-            AddError("Account locked due to too many failed login attempts. Try again later.");
-            await Send.ErrorsAsync(StatusCodes.Status429TooManyRequests, ct);
-        }
-        else if (!result.Succeeded)
-        {
-            AddError("Incorrect username or password");
-            await Send.ErrorsAsync(StatusCodes.Status401Unauthorized, ct);
-        }
-        else
-        {
-            await Send.NoContentAsync(ct);
-        }
+        if (result.IsLockedOut) ThrowError("Account locked due to too many failed login attempts. Try again later.", StatusCodes.Status429TooManyRequests);
+        if (!result.Succeeded) ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
+        await Send.NoContentAsync(ct);
     }
 }
 

@@ -161,6 +161,57 @@ public class ApiTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task A_rejected_password_change_leaves_the_account_untouched()
+    {
+        var admin = await api.LoginAsync();
+        int id = await api.CreateUserAsync(admin, "erin");
+
+        var update = await admin.Http.PutAsJsonAsync($"/api/v1/users/{id}",
+            new { Name = "Changed", Username = "erin", Email = "erin@example.com", AccessType = "regular", Active = true, Password = "abc" }, ApiClient.Json);
+        Assert.Equal(HttpStatusCode.BadRequest, update.StatusCode);
+
+        var users = await admin.GetJsonAsync<JsonElement[]>("/api/v1/users");
+        Assert.Equal("erin", users.Single(u => u.GetProperty("id").GetInt32() == id).GetProperty("name").GetString()); // name not changed either
+        await api.LoginAsync("erin", "Str0ng-pass!"); // old password still works
+    }
+
+    [Fact]
+    public async Task A_deactivated_user_gets_the_same_401_as_a_wrong_password()
+    {
+        var admin = await api.LoginAsync();
+        int id = await api.CreateUserAsync(admin, "finn");
+        await admin.Http.PutAsJsonAsync($"/api/v1/users/{id}",
+            new { Name = "finn", Username = "finn", Email = "finn@example.com", AccessType = "regular", Active = false }, ApiClient.Json);
+
+        var client = new ApiClient(api.CreateClient());
+        await client.SyncXsrfAsync();
+        var response = await client.Http.PostAsJsonAsync("/api/v1/auth/login", new { Username = "finn", Password = "Str0ng-pass!" }, ApiClient.Json);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Upload_without_a_file_is_a_400_not_a_500()
+    {
+        var admin = await api.LoginAsync();
+        var response = await admin.Http.PostAsync("/api/v1/activities/upload", new MultipartFormDataContent { { new StringContent("x"), "other" } });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Two_parallel_uploads_of_the_same_recording_save_it_once()
+    {
+        var admin = await api.LoginAsync();
+        var gpx = Gpx("Parallel", new DateTime(2026, 3, 3, 8, 0, 0, DateTimeKind.Utc));
+
+        var responses = await Task.WhenAll(
+            admin.Http.PostAsync("/api/v1/activities/upload", Upload("a.gpx", gpx)),
+            admin.Http.PostAsync("/api/v1/activities/upload", Upload("b.gpx", gpx)));
+
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Conflict);
+    }
+
+    [Fact]
     public async Task Logout_ends_the_session()
     {
         var admin = await api.LoginAsync();

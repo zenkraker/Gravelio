@@ -12,7 +12,6 @@
     <PackageReference Include="FastEndpoints.Swagger" />
     <PackageReference Include="Garmin.FIT.Sdk" />
     <PackageReference Include="GeoTimeZone" />
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

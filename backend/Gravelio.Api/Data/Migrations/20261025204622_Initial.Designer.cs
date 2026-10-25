@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gravelio.Api.Data.Migrations
 {
     [DbContext(typeof(AppDb))]
-    [Migration("20261025200323_Initial")]
+    [Migration("20261025204622_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -116,7 +116,8 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "StartTime");
+                    b.HasIndex("UserId", "StartTime")
+                        .IsUnique();
 
                     b.ToTable("Activities");
                 });
@@ -254,25 +255,6 @@ namespace Gravelio.Api.Data.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FriendlyName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Xml")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("DataProtectionKeys");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>

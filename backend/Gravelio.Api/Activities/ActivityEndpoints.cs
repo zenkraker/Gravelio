@@ -7,6 +7,7 @@ using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Gravelio.Api.Activities;
 
@@ -21,7 +22,9 @@ public sealed record ActivityRead(int Id, string? Name, string? Description, int
         a.AverageSpeed, a.MaxSpeed, a.AveragePower, a.MaxPower, a.NormalizedPower, a.AverageHr, a.MaxHr, a.AverageCad, a.MaxCad, a.Calories,
         a.Visibility, a.TrackerManufacturer, a.TrackerModel, a.CreatedAt);
 
-    public static ActivityRead From(Activity a) => Projection.Compile()(a);
+    static readonly Func<Activity, ActivityRead> Compiled = Projection.Compile();
+
+    public static ActivityRead From(Activity a) => Compiled(a);
 }
 
 public sealed record ActivityPage(List<ActivityRead> Items, int Total, int Page, int PageSize);
@@ -84,6 +87,13 @@ public sealed record StreamRead(int StreamType, JsonElement Waypoints);
 
 public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<ActivityIdRequest, List<StreamRead>>
 {
+    // Clone lets the JsonDocument (and its pooled buffers) be released right away.
+    static JsonElement ParseWaypoints(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
     public override void Configure() => Get("/activities/{id:int}/streams");
 
     public override async Task HandleAsync(ActivityIdRequest req, CancellationToken ct)
@@ -95,7 +105,7 @@ public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<ActivityIdRequest, L
             return;
         }
         var streams = await db.ActivityStreams.AsNoTracking().Where(s => s.ActivityId == req.Id).OrderBy(s => s.StreamType).ToListAsync(ct);
-        await Send.OkAsync(streams.Select(s => new StreamRead(s.StreamType, JsonDocument.Parse(s.Waypoints).RootElement)).ToList(), ct);
+        await Send.OkAsync(streams.Select(s => new StreamRead(s.StreamType, ParseWaypoints(s.Waypoints))).ToList(), ct);
     }
 }
 
@@ -152,9 +162,13 @@ public sealed class UploadActivityValidator : Validator<UploadActivityRequest>
 {
     public UploadActivityValidator()
     {
-        RuleFor(x => x.File.Length).InclusiveBetween(1, UploadActivityEndpoint.MaxUploadBytes).WithMessage("File is empty or larger than 50 MB");
-        RuleFor(x => Path.GetExtension(x.File.FileName).ToLowerInvariant()).Must(ActivityFileParser.SupportedExtensions.Contains)
-            .WithMessage($"Unsupported file type. Allowed: {string.Join(", ", ActivityFileParser.SupportedExtensions)}");
+        RuleFor(x => x.File).NotNull().WithMessage("Attach the activity file in the 'file' form field.");
+        When(x => x.File is not null, () =>
+        {
+            RuleFor(x => x.File.Length).InclusiveBetween(1, UploadActivityEndpoint.MaxUploadBytes).WithMessage("File is empty or larger than 50 MB");
+            RuleFor(x => Path.GetExtension(x.File.FileName).ToLowerInvariant()).Must(ActivityFileParser.SupportedExtensions.Contains)
+                .WithMessage($"Unsupported file type. Allowed: {string.Join(", ", ActivityFileParser.SupportedExtensions)}");
+        });
     }
 }
 
@@ -174,7 +188,7 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var userId = User.UserId();
         var user = (await users.GetUserAsync(User))!;
         var ext = Path.GetExtension(req.File.FileName).ToLowerInvariant();
-        List<Activity> built;
+        List<Activity> built = []; // ThrowError never returns, but the compiler can't see that
         try
         {
             await using var stream = req.File.OpenReadStream();
@@ -183,16 +197,12 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         }
         catch (InvalidActivityFileException e)
         {
-            AddError(e.Message);
-            await Send.ErrorsAsync(StatusCodes.Status422UnprocessableEntity, ct);
-            return;
+            ThrowError(e.Message, StatusCodes.Status422UnprocessableEntity);
         }
         catch (Exception e)
         {
             log.LogWarning(e, "Failed to parse uploaded {Extension} file for user {UserId}", ext, userId);
-            AddError("Failed to parse activity file");
-            await Send.ErrorsAsync(StatusCodes.Status422UnprocessableEntity, ct);
-            return;
+            ThrowError("Failed to parse activity file", StatusCodes.Status422UnprocessableEntity);
         }
 
         // Re-uploading the same recording is rejected rather than creating a duplicate.
@@ -201,14 +211,20 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var fresh = built.Where(a => !existing.Contains(a.StartTime)).ToList();
         if (fresh.Count == 0)
         {
-            AddError("This activity has already been uploaded");
-            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
-            return;
+            ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         }
         var now = time.GetUtcNow().UtcDateTime;
         foreach (var a in fresh) a.CreatedAt = now;
         db.Activities.AddRange(fresh);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            // A parallel upload of the same recording won the race the check above can't prevent.
+            ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
+        }
         await Send.OkAsync(fresh.Select(ActivityRead.From).ToList(), ct);
     }
 }

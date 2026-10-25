@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using FastEndpoints;
@@ -20,8 +19,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<AppDb>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
-// Auth cookies are encrypted with these keys; keeping them in the database survives container restarts.
-builder.Services.AddDataProtection().SetApplicationName("Gravelio").PersistKeysToDbContext<AppDb>();
+// Auth cookies are encrypted with these keys. They live on their own volume, not in the database, so a database dump can't forge sessions.
+builder.Services.AddDataProtection().SetApplicationName("Gravelio")
+    .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 builder.Services.AddGravelioAuth();
 builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s => s.Title = "Gravelio API");
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = UploadActivityEndpoint.MaxUploadBytes);
@@ -79,10 +79,9 @@ static async Task SeedAdmin(IServiceProvider services, ILogger logger)
     if (users.Users.Any()) return;
 
     var config = services.GetRequiredService<IOptions<AdminOptions>>().Value;
-    var password = config.Password;
-    bool generated = string.IsNullOrEmpty(password);
-    if (generated) password = Convert.ToBase64String(RandomNumberGenerator.GetBytes(12)) + "aA1!";
-    else if (password!.Length < AdminPasswordValidator.AdminMinLength) throw new InvalidOperationException($"Admin:Password: {AdminPasswordValidator.TooShortMessage}");
+    // Never generated: a generated password would have to be logged, and logs outlive first login.
+    var password = config.Password ?? throw new InvalidOperationException("Set Admin__Password (12+ characters) to create the first admin user.");
+    if (password.Length < AdminPasswordValidator.AdminMinLength) throw new InvalidOperationException($"Admin:Password: {AdminPasswordValidator.TooShortMessage}");
 
     await services.GetRequiredService<RoleManager<IdentityRole<int>>>().CreateAsync(new IdentityRole<int>(AppRoles.Admin));
     var admin = new User
@@ -92,10 +91,9 @@ static async Task SeedAdmin(IServiceProvider services, ILogger logger)
         Email = config.Email ?? "admin@example.com",
         CreatedAt = services.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime,
     };
-    var result = await users.CreateAsync(admin, password!);
+    var result = await users.CreateAsync(admin, password);
     if (result.Succeeded) result = await users.AddToRoleAsync(admin, AppRoles.Admin);
     if (!result.Succeeded) throw new InvalidOperationException("Could not create the initial admin: " + string.Join(" ", result.Errors.Select(e => e.Description)));
 
-    if (generated) logger.LogWarning("Created initial user 'admin' with generated password: {Password} — change it after first login.", password);
-    else logger.LogInformation("Created initial user 'admin'.");
+    logger.LogInformation("Created initial user 'admin'.");
 }

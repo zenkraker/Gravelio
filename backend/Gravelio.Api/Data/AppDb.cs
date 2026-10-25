@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -76,17 +75,17 @@ public static class StreamTypes
     public const int Hr = 1, Power = 2, Cadence = 3, Elevation = 4, Speed = 5, Pace = 6, Map = 7, Temperature = 8;
 }
 
-public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options), IDataProtectionKeyContext
+public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityStream> ActivityStreams => Set<ActivityStream>();
-    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
         b.Entity<Activity>().HasOne(a => a.User).WithMany().OnDelete(DeleteBehavior.Cascade);
-        b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime });
+        // One recording per user and start time; the upload endpoint relies on this to reject parallel duplicates.
+        b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime }).IsUnique();
         b.Entity<ActivityStream>().Property(s => s.Waypoints).HasColumnType("jsonb");
         b.Entity<ActivityStream>().HasIndex(s => new { s.ActivityId, s.StreamType }).IsUnique();
         b.Entity<Activity>().HasMany(a => a.Streams).WithOne().HasForeignKey(s => s.ActivityId).OnDelete(DeleteBehavior.Cascade);

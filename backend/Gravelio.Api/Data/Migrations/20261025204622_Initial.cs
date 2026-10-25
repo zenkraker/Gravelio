@@ -66,20 +66,6 @@ namespace Gravelio.Api.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "DataProtectionKeys",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    FriendlyName = table.Column<string>(type: "text", nullable: true),
-                    Xml = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataProtectionKeys", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
                 columns: table => new
                 {
@@ -254,7 +240,8 @@ namespace Gravelio.Api.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Activities_UserId_StartTime",
                 table: "Activities",
-                columns: new[] { "UserId", "StartTime" });
+                columns: new[] { "UserId", "StartTime" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityStreams_ActivityId_StreamType",
@@ -320,9 +307,6 @@ namespace Gravelio.Api.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUserTokens");
-
-            migrationBuilder.DropTable(
-                name: "DataProtectionKeys");
 
             migrationBuilder.DropTable(
                 name: "Activities");

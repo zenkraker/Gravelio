@@ -72,9 +72,7 @@ public sealed class UpdateMeEndpoint(UserManager<User> users) : Endpoint<UpdateM
         if (result.Succeeded) result = await users.UpdateAsync(user);
         if (!result.Succeeded)
         {
-            AddError(UserRules.Describe(result));
-            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
-            return;
+            ThrowError(UserRules.Describe(result), StatusCodes.Status409Conflict);
         }
         await Send.OkAsync(UserRead.From(user, await users.IsInRoleAsync(user, AppRoles.Admin)), ct);
     }
@@ -101,9 +99,7 @@ public sealed class ChangePasswordEndpoint(UserManager<User> users, SignInManage
         var result = await users.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
         if (!result.Succeeded)
         {
-            AddError(UserRules.Describe(result));
-            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError(UserRules.Describe(result), StatusCodes.Status400BadRequest);
         }
         // ChangePasswordAsync rotated the security stamp, which signs out every other session; keep this one.
         await signIn.RefreshSignInAsync(user);
@@ -156,24 +152,20 @@ public sealed class CreateUserEndpoint(UserManager<User> users, TimeProvider tim
     {
         if (req.Password is null)
         {
-            AddError(r => r.Password, "Password is required");
-            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError(r => r.Password, "Password is required", StatusCodes.Status400BadRequest);
         }
         var user = new User { Name = req.Name, UserName = req.Username, Email = req.Email, Active = req.Active, CreatedAt = time.GetUtcNow().UtcDateTime };
         var result = await users.CreateAsync(user, req.Password);
         if (result.Succeeded && req.AccessType == AppRoles.Admin) result = await users.AddToRoleAsync(user, AppRoles.Admin);
         if (!result.Succeeded)
         {
-            AddError(UserRules.Describe(result));
-            await Send.ErrorsAsync(result.Errors.Any(e => e.Code.StartsWith("Duplicate")) ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError(UserRules.Describe(result), result.Errors.Any(e => e.Code.StartsWith("Duplicate")) ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest);
         }
         await Send.CreatedAtAsync<ListUsersEndpoint>(null, UserRead.From(user, req.AccessType == AppRoles.Admin), cancellation: ct);
     }
 }
 
-public sealed class UpdateUserEndpoint(UserManager<User> users) : Endpoint<AdminUserRequest, UserRead>
+public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endpoint<AdminUserRequest, UserRead>
 {
     public override void Configure()
     {
@@ -193,11 +185,11 @@ public sealed class UpdateUserEndpoint(UserManager<User> users) : Endpoint<Admin
         bool makeAdmin = req.AccessType == AppRoles.Admin;
         if (req.Id == User.UserId() && (!makeAdmin || !req.Active))
         {
-            AddError("You can't remove your own admin access or deactivate yourself");
-            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError("You can't remove your own admin access or deactivate yourself", StatusCodes.Status400BadRequest);
         }
 
+        // One transaction: a rejected password or a duplicate name must leave the account exactly as it was.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         user.Name = req.Name;
         user.Active = req.Active;
         var result = await users.SetUserNameAsync(user, req.Username);
@@ -211,10 +203,9 @@ public sealed class UpdateUserEndpoint(UserManager<User> users) : Endpoint<Admin
         if (result.Succeeded && (makeAdmin != wasAdmin || !req.Active || req.Password is not null)) result = await users.UpdateSecurityStampAsync(user);
         if (!result.Succeeded)
         {
-            AddError(UserRules.Describe(result));
-            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError(UserRules.Describe(result), StatusCodes.Status400BadRequest);
         }
+        await transaction.CommitAsync(ct);
         await Send.OkAsync(UserRead.From(user, makeAdmin), ct);
     }
 }
@@ -233,9 +224,7 @@ public sealed class DeleteUserEndpoint(UserManager<User> users) : Endpoint<Delet
     {
         if (req.Id == User.UserId())
         {
-            AddError("You can't delete yourself");
-            await Send.ErrorsAsync(StatusCodes.Status400BadRequest, ct);
-            return;
+            ThrowError("You can't delete yourself", StatusCodes.Status400BadRequest);
         }
         var user = await users.FindByIdAsync(req.Id.ToString());
         if (user is null) await Send.NotFoundAsync(ct);
