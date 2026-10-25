@@ -485,3 +485,5 @@ $RECYCLE.BIN/
 frontend/dist/
 node_modules/
 .angular/
+
+.env
