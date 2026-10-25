@@ -7,6 +7,7 @@ using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,17 @@ using OpenTelemetry.Trace;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton(TimeProvider.System);
+// Forwarded headers (client IP, scheme) are believed only from these networks: anyone else could forge their address
+// and walk around the per-IP login limit. The defaults are the private ranges Docker and typical proxies use.
+string[] trustedProxies = builder.Configuration.GetSection("TrustedProxies").Get<string[]>()
+    ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7", "127.0.0.0/8", "::1/128"];
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+    foreach (var network in trustedProxies) o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+});
 builder.Services.AddDbContext<AppDb>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 // Auth cookies are encrypted with these keys. They live on their own volume, not in the database, so a database dump can't forge sessions.
 builder.Services.AddDataProtection().SetApplicationName("Gravelio")
@@ -54,6 +66,7 @@ using (var scope = app.Services.CreateScope())
     await SeedAdmin(scope.ServiceProvider, app.Logger);
 }
 
+app.UseForwardedHeaders();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();

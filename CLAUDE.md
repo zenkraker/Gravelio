@@ -71,6 +71,7 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
   - A check-then-insert is never enough on its own: back it with a unique index and turn the `PostgresException` `UniqueViolation` into a 409, as activity upload does for one user and start time.
   - List endpoints are paged.
 - The XSRF middleware must run after `UseAuthentication` and before `UseAuthorization`: authorization short-circuits 401s, and the SPA gets its first XSRF token from the 401 response of `GET /users/me`.
+- Client IP and scheme come only from ASP.NET Core's forwarded-headers middleware, which believes `X-Forwarded-*` just from the `TrustedProxies` networks (private ranges by default). Never read `X-Forwarded-For` yourself: a stranger could forge it and walk around the per-IP login limit. `ClientIpTests` covers both directions.
 - Never read `HttpContext` after the request completes or from background work. Background work creates its own scope through `IServiceScopeFactory`.
 - Outbound HTTP (e.g. Strava, Garmin) goes only through `IHttpClientFactory`.
 - Background and scheduled work runs in `BackgroundService` implementations.
@@ -84,6 +85,15 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
   - Timezone comes from the first GPS point, except for virtual activity types.
   - Uploaded XML is parsed with DTDs prohibited.
 - Streams are stored as jsonb arrays in the Endurain waypoint shape (`{"time", "<key>": value}`, map points as `{"time","lat","lon"}`). Stream type ids (1 hr … 8 temperature) and activity type ids (`ActivityTypes`, ported from Endurain) are fixed contracts shared with the frontend.
+
+## Rules from the Endurain audit (apply when porting a module)
+
+Endurain's original code has these flaws; do not carry them over. Each needs a test in the PR that ports the module.
+
+- **Public (anonymous) endpoints return a dedicated minimal DTO**, never the user or activity entity or the signed-in DTO, and only for data the owner has made public. A public user lookup returns id, display name and photo for a user who has a public activity: no email, birthdate, height, heart rate, role or status. The test asserts the sensitive fields are absent.
+- **Hiding something hides everything derived from it.** `hide_map` and `hide_location` also blank lap start/end coordinates, geocoded place names and thumbnails. Every stream type maps to a hide flag, and a type with no mapping is hidden (default-deny, never default-visible). The test hides the map and checks laps, then loops over all stream types.
+- **A one-time MFA code works once.** Store the last accepted TOTP time step per user and reject any code at or before it (RFC 6238 §5.2). Identity's authenticator provider does not do this. The test submits the same valid code twice.
+- **Forged client IPs are ignored** (see the forwarded-headers rule above).
 
 ## Angular
 
@@ -154,6 +164,7 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - Before writing Angular code, use the `angular-cli` MCP server (registered in `.mcp.json` as `pnpm exec ng mcp`, which needs Node ≥ 24.15 and pnpm on PATH): `get_best_practices` for version-matched rules and `search_documentation` for API lookups.
 
 - End-to-end tests use `@playwright/test` against the running app, and every page gets an `@axe-core/playwright` scan. Any AXE violation fails the test.
+- After a UI change, run the stack and look at the pages in a real browser (`pnpm start` + the API, then Playwright screenshots and the axe suite) before calling it done. The e2e specs must cover each new page.
 - UI components come from Angular Material and the Angular CDK. Build a custom widget only when neither provides one.
 - Every user-facing string is translatable with `@angular/localize` (`i18n` attributes in templates, `$localize` in code). The app builds once per locale.
 
