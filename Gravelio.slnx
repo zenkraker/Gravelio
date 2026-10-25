@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/Gravelio.Api/Gravelio.Api.csproj" />
+    <Project Path="backend/Gravelio.Tests/Gravelio.Tests.csproj" />
+  </Folder>
+</Solution>
