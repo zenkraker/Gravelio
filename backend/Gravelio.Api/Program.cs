@@ -57,8 +57,9 @@ using (var scope = app.Services.CreateScope())
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
-app.UseAuthorization();
+// Before authorization, which short-circuits 401s: those responses must still hand out an XSRF token.
 app.UseXsrfProtection();
+app.UseAuthorization();
 app.UseFastEndpoints(c =>
 {
     c.Endpoints.RoutePrefix = "api/v1";

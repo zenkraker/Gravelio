@@ -26,12 +26,21 @@ public sealed class AuthOptions
     public int LoginAttemptsPerMinute { get; set; } = 10;
 }
 
+/// Docker Compose passes unset variables as empty strings, so blank means "not set".
 public sealed class AdminOptions
 {
     [EmailAddress]
-    public string? Email { get; set; }
+    public string? Email
+    {
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
 
-    public string? Password { get; set; }
+    public string? Password
+    {
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
 }
 
 /// Identity's password rules apply to everyone; admins additionally need a longer password.

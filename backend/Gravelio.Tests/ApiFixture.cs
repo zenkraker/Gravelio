@@ -12,7 +12,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string AdminPassword = "Admin-Password-1!"; // from appsettings.Development.json
 
-    readonly PostgreSqlContainer db = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+    readonly PostgreSqlContainer db = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
     async Task IAsyncLifetime.InitializeAsync() => await db.StartAsync();
 
@@ -55,10 +55,11 @@ public sealed class ApiClient(HttpClient http)
 
     public HttpClient Http => http;
 
-    /// Mirrors Angular's XSRF support: read the XSRF-TOKEN cookie and echo it as X-XSRF-TOKEN.
+    /// Mirrors Angular's XSRF support: read the XSRF-TOKEN cookie and echo it as X-XSRF-TOKEN. The SPA gets its token
+    /// from GET /users/me, which answers 401 while signed out, so that is where the tests get it too.
     public async Task SyncXsrfAsync()
     {
-        using var response = await http.GetAsync("/api/v1/health");
+        using var response = await http.GetAsync("/api/v1/users/me");
         var cookie = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("XSRF-TOKEN="));
         var token = Uri.UnescapeDataString(cookie["XSRF-TOKEN=".Length..cookie.IndexOf(';')]);
         http.DefaultRequestHeaders.Remove("X-XSRF-TOKEN");
