@@ -155,6 +155,13 @@ export interface WeightEntry {
   source: string | null;
 }
 
+export interface StepEntry {
+  id: number;
+  date: string;
+  steps: number;
+  source: string | null;
+}
+
 export interface PrivacySettings {
   default_activity_visibility: number;
   hide_activity_start_time: boolean;

@@ -169,6 +169,28 @@ test('log a weight reading, replace it the same day, delete it', async ({ page }
   await expect(page.getByRole('row', { name: /Feb 14, 2026/ })).toHaveCount(0);
 });
 
+test('log steps, replace the count the same day, delete it', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('link', { name: 'Steps', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Steps', level: 1 })).toBeVisible();
+
+  const save = async (steps: string) => {
+    await page.getByLabel('Date', { exact: true }).fill('2026-02-15');
+    await page.getByLabel('Steps', { exact: true }).fill(steps);
+    await page.getByRole('button', { name: 'Save steps' }).click();
+    await expect(page.getByText('Steps saved')).toBeVisible();
+  };
+  await save('8000');
+  await save('9000');
+  await expect(page.getByRole('row', { name: /Feb 15, 2026/ })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: '9000', exact: true })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: /Delete the steps from 2026-02-15/ }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Feb 15, 2026/ })).toHaveCount(0);
+});
+
 test('follow a user, accept the request, and see their public activity in the feed', async ({
   page,
 }) => {

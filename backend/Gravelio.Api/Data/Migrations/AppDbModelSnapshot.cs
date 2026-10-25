@@ -302,6 +302,34 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("GearComponents");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.HealthStep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Steps")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("HealthSteps");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.HealthWeight", b =>
                 {
                     b.Property<int>("Id")
@@ -742,6 +770,15 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gear");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.HealthStep", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.HealthWeight", b =>

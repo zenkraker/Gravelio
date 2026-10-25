@@ -40,6 +40,14 @@ import { AuthService } from './core/auth';
         >
         <a
           mat-button
+          routerLink="/steps"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          i18n
+          >Steps</a
+        >
+        <a
+          mat-button
           routerLink="/people"
           routerLinkActive="active"
           ariaCurrentWhenActive="page"

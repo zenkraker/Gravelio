@@ -176,6 +176,17 @@ public class HealthWeight
     public string? Source { get; set; }
 }
 
+/// One daily step total per user; a second save for the same day replaces it.
+public class HealthStep
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public DateOnly Date { get; set; }
+    public int Steps { get; set; }
+    /// Set by integrations (e.g. "garmin"); null for manual entries.
+    public string? Source { get; set; }
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
@@ -184,6 +195,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<GearComponent> GearComponents => Set<GearComponent>();
     public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
     public DbSet<HealthWeight> HealthWeights => Set<HealthWeight>();
+    public DbSet<HealthStep> HealthSteps => Set<HealthStep>();
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
@@ -211,6 +223,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<HealthWeight>().HasIndex(w => new { w.UserId, w.Date }).IsUnique();
         foreach (var p in new[] { nameof(HealthWeight.Weight), nameof(HealthWeight.Bmi), nameof(HealthWeight.BodyFat), nameof(HealthWeight.BodyWater), nameof(HealthWeight.BoneMass), nameof(HealthWeight.MuscleMass), nameof(HealthWeight.VisceralFat) })
             b.Entity<HealthWeight>().Property(p).HasPrecision(10, 2);
+        b.Entity<HealthStep>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<HealthStep>().HasIndex(s => new { s.UserId, s.Date }).IsUnique();
         b.Entity<Follow>().HasOne(f => f.Follower).WithMany().HasForeignKey(f => f.FollowerId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Follow>().HasOne(f => f.Followee).WithMany().HasForeignKey(f => f.FolloweeId).OnDelete(DeleteBehavior.Cascade);
         // One relationship per direction; the follow endpoint relies on this to reject parallel requests.
