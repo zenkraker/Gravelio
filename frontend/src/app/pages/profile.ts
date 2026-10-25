@@ -1,32 +1,43 @@
-import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { HttpClient, httpResource } from '@angular/common/http';
+import { Component, effect, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { User, problemMessage } from '../core/api';
+import { PrivacySettings, User, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+type BooleanPrivacyKey = {
+  [K in keyof PrivacySettings]: PrivacySettings[K] extends boolean ? K : never;
+}[keyof PrivacySettings];
 
 @Component({
   selector: 'app-profile',
   providers: [OUTLINE_FIELDS],
   imports: [
+    RouterLink,
     FormField,
     MatButtonModule,
     MatCardModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
   ],
   template: `
-    <h1 i18n>Profile</h1>
+    <header>
+      <h1 i18n>Profile</h1>
+      <a mat-button [routerLink]="['/people', auth.user()?.id]" i18n>View public profile</a>
+    </header>
     <mat-card appearance="outlined">
       <mat-card-content>
         <form novalidate (submit)="saveProfile($event)">
@@ -97,6 +108,105 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
       </mat-card-content>
     </mat-card>
 
+    <h2 i18n>Activity privacy</h2>
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        @if (privacy.error()) {
+          <p class="error" role="alert" i18n>Could not load privacy settings.</p>
+        }
+        @if (privacyModel(); as p) {
+          <p i18n>
+            These settings hide your data from other people. You always see your own activities in
+            full.
+          </p>
+          <form novalidate (submit)="savePrivacy($event)">
+            <mat-form-field class="visibility">
+              <mat-label i18n>Default visibility</mat-label>
+              <mat-select
+                [value]="'' + p.default_activity_visibility"
+                (selectionChange)="setDefaultVisibility($event.value)"
+              >
+                <mat-option value="2" i18n>Private</mat-option>
+                <mat-option value="1" i18n>Followers</mat-option>
+                <mat-option value="0" i18n>Public</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <p class="hint" i18n>
+              Default visibility applies to new activities; each activity can override it.
+            </p>
+            <div class="checks">
+              <mat-checkbox
+                [checked]="p.hide_activity_start_time"
+                (change)="setHide('hide_activity_start_time', $event.checked)"
+                i18n
+                >Hide start time</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_location"
+                (change)="setHide('hide_activity_location', $event.checked)"
+                i18n
+                >Hide location</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_map"
+                (change)="setHide('hide_activity_map', $event.checked)"
+                i18n
+                >Hide map</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_hr"
+                (change)="setHide('hide_activity_hr', $event.checked)"
+                i18n
+                >Hide heart rate</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_power"
+                (change)="setHide('hide_activity_power', $event.checked)"
+                i18n
+                >Hide power</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_cadence"
+                (change)="setHide('hide_activity_cadence', $event.checked)"
+                i18n
+                >Hide cadence</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_elevation"
+                (change)="setHide('hide_activity_elevation', $event.checked)"
+                i18n
+                >Hide elevation</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_speed"
+                (change)="setHide('hide_activity_speed', $event.checked)"
+                i18n
+                >Hide speed</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_pace"
+                (change)="setHide('hide_activity_pace', $event.checked)"
+                i18n
+                >Hide pace</mat-checkbox
+              >
+              <mat-checkbox
+                [checked]="p.hide_activity_gear"
+                (change)="setHide('hide_activity_gear', $event.checked)"
+                i18n
+                >Hide gear</mat-checkbox
+              >
+            </div>
+            @if (privacyError()) {
+              <p class="error" role="alert">{{ privacyError() }}</p>
+            }
+            <button mat-flat-button type="submit" [disabled]="privacy.isLoading()" i18n>
+              Save privacy
+            </button>
+          </form>
+        }
+      </mat-card-content>
+    </mat-card>
+
     <h2 i18n>Change password</h2>
     <mat-card appearance="outlined">
       <mat-card-content>
@@ -124,6 +234,12 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
     </mat-card>
   `,
   styles: `
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
     form {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -135,6 +251,18 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
       grid-column: 1 / -1;
       justify-self: start;
     }
+    .hint,
+    .checks {
+      grid-column: 1 / -1;
+    }
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 4px 16px;
+    }
+    .visibility {
+      max-width: 280px;
+    }
     .error {
       color: var(--mat-sys-error);
       margin: 0;
@@ -143,12 +271,22 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
 })
 export class Profile {
   private http = inject(HttpClient);
-  private auth = inject(AuthService);
+  protected readonly auth = inject(AuthService);
   private snack = inject(MatSnackBar);
 
   protected readonly days = DAYS;
   protected readonly profileError = signal('');
   protected readonly passwordError = signal('');
+  protected readonly privacyError = signal('');
+  protected readonly privacy = httpResource<PrivacySettings>(() => '/api/v1/users/me/privacy');
+  protected readonly privacyModel = signal<PrivacySettings | null>(null);
+
+  constructor() {
+    effect(() => {
+      const settings = this.privacy.value();
+      if (settings) this.privacyModel.set({ ...settings });
+    });
+  }
 
   private readonly profile = signal(this.fromUser(this.auth.user()!));
   protected readonly f = form(this.profile, (p) => {
@@ -198,6 +336,28 @@ export class Profile {
         this.profileError.set(problemMessage(err));
       }
     });
+  }
+
+  protected setHide(key: BooleanPrivacyKey, value: boolean): void {
+    this.privacyModel.update((p) => (p ? { ...p, [key]: value } : p));
+  }
+
+  protected setDefaultVisibility(value: string): void {
+    this.privacyModel.update((p) => (p ? { ...p, default_activity_visibility: Number(value) } : p));
+  }
+
+  protected async savePrivacy(event: Event): Promise<void> {
+    event.preventDefault();
+    const settings = this.privacyModel();
+    if (!settings) return;
+    this.privacyError.set('');
+    try {
+      await firstValueFrom(this.http.put('/api/v1/users/me/privacy', settings));
+      this.snack.open($localize`Privacy saved`, undefined, { duration: 4000 });
+      this.privacy.reload();
+    } catch (err) {
+      this.privacyError.set(problemMessage(err));
+    }
   }
 
   protected async changePassword(event: Event): Promise<void> {

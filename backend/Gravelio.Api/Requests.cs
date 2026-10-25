@@ -62,4 +62,7 @@ public static class QueryExtensions
 
     public static IQueryable<GearComponent> OwnedBy(this IQueryable<GearComponent> components, int userId, int gearId, int id) =>
         components.Where(c => c.Id == id && c.GearId == gearId && c.Gear.UserId == userId);
+
+    /// Escapes LIKE wildcards (with backslash, which the query must name as its escape character) so a search for "50%" matches the text "50%", not everything.
+    public static string ContainsPattern(string text) => "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 }

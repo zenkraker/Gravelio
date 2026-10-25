@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -27,6 +28,7 @@ const PAGE_SIZE = 20;
   imports: [
     RouterLink,
     MatButtonModule,
+    MatButtonToggleModule,
     MatCardModule,
     MatIconModule,
     MatPaginatorModule,
@@ -45,15 +47,28 @@ const PAGE_SIZE = 20;
         tabindex="-1"
         (change)="upload(file)"
       />
-      <button mat-flat-button type="button" [disabled]="uploading()" (click)="file.click()">
-        <mat-icon aria-hidden="true">upload</mat-icon><span i18n>Upload activity</span>
-      </button>
+      @if (scope() === 'mine') {
+        <button mat-flat-button type="button" [disabled]="uploading()" (click)="file.click()">
+          <mat-icon aria-hidden="true">upload</mat-icon><span i18n>Upload activity</span>
+        </button>
+      }
     </header>
+    <div class="scope">
+      <mat-button-toggle-group
+        [value]="scope()"
+        (change)="setScope($event.value)"
+        aria-label="Activity feed"
+        i18n-aria-label
+      >
+        <mat-button-toggle value="mine" i18n>Mine</mat-button-toggle>
+        <mat-button-toggle value="following" i18n>Following</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
     @if (uploading()) {
       <mat-progress-bar mode="indeterminate" aria-label="Uploading" i18n-aria-label />
     }
     @if (page.error()) {
-      <p class="error" role="alert" i18n>Could not load your activities.</p>
+      <p class="error" role="alert" i18n>Could not load activities.</p>
     }
     <ul class="list">
       @for (a of page.value()?.items; track a.id) {
@@ -64,6 +79,9 @@ const PAGE_SIZE = 20;
                 <a [routerLink]="['/activities', a.id]">{{ a.name }}</a>
               </h2>
               <p mat-card-subtitle>
+                @if (scope() === 'following') {
+                  <a [routerLink]="['/people', a.owner.id]">{{ a.owner.name }}</a> ·
+                }
                 {{ types.name(a.activity_type) }} · {{ when(a.start_time, a.timezone) }}
               </p>
             </mat-card-header>
@@ -92,7 +110,11 @@ const PAGE_SIZE = 20;
         </li>
       } @empty {
         @if (!page.isLoading()) {
-          <li><p i18n>No activities yet. Upload a GPX, TCX or FIT file to get started.</p></li>
+          @if (scope() === 'following') {
+            <li><p i18n>No activities from people you follow yet.</p></li>
+          } @else {
+            <li><p i18n>No activities yet. Upload a GPX, TCX or FIT file to get started.</p></li>
+          }
         }
       }
     </ul>
@@ -109,6 +131,9 @@ const PAGE_SIZE = 20;
       display: flex;
       align-items: center;
       justify-content: space-between;
+    }
+    .scope {
+      margin: 8px 0 16px;
     }
     .list {
       list-style: none;
@@ -143,8 +168,9 @@ export class Activities {
   protected readonly pageSize = PAGE_SIZE;
   protected readonly pageIndex = signal(1);
   protected readonly uploading = signal(false);
+  protected readonly scope = signal<'mine' | 'following'>('mine');
   protected readonly page = httpResource<Paged<Activity>>(() => ({
-    url: '/api/v1/activities',
+    url: this.scope() === 'mine' ? '/api/v1/activities' : '/api/v1/activities/feed',
     params: { page: this.pageIndex(), page_size: PAGE_SIZE },
   }));
 
@@ -158,6 +184,11 @@ export class Activities {
 
   protected onPage(event: PageEvent): void {
     this.pageIndex.set(event.pageIndex + 1);
+  }
+
+  protected setScope(value: string): void {
+    this.scope.set(value === 'following' ? 'following' : 'mine');
+    this.pageIndex.set(1);
   }
 
   protected async upload(input: HTMLInputElement): Promise<void> {

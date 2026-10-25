@@ -4,6 +4,7 @@ using FluentValidation;
 using Gravelio.Api.Activities.Import;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
+using Gravelio.Api.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,16 +49,21 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var fresh = built.Where(a => !existing.Contains(a.StartTime)).ToList();
         if (fresh.Count == 0) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         var now = time.GetUtcNow().UtcDateTime;
+        // New activities start with the owner's default visibility; no privacy row means the safe private default.
+        var defaultVisibility = (await db.UserPrivacySettings.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct))
+            ?.DefaultActivityVisibility ?? Visibilities.Private;
         // Pre-select the user's default gear for each activity type (retired gear is skipped).
         var defaults = await db.DefaultGears.Where(d => d.UserId == userId && d.Gear.Active).ToDictionaryAsync(d => d.ActivityType, d => d.GearId, ct);
         foreach (var a in fresh)
         {
             a.CreatedAt = now;
+            a.Visibility = defaultVisibility;
             if (defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
         }
         db.Activities.AddRange(fresh);
         // A parallel upload of the same recording can win the race the check above can't prevent.
         if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
-        await Send.OkAsync(fresh.Select(ActivityRead.From).ToList(), ct);
+        var owner = PersonRead.From(user);
+        await Send.OkAsync(fresh.Select(a => ActivityRead.From(a, owner)).ToList(), ct);
     }
 }

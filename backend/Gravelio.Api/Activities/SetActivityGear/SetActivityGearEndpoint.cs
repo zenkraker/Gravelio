@@ -25,6 +25,6 @@ public sealed class SetActivityGearEndpoint(AppDb db) : Endpoint<SetActivityGear
             ThrowError(r => r.GearId, "Gear not found", StatusCodes.Status404NotFound);
         activity.GearId = req.GearId;
         await db.SaveChangesAsync(ct);
-        await Send.OkAsync(ActivityRead.From(activity), ct);
+        await Send.OkAsync(await db.Activities.AsNoTracking().Where(a => a.Id == activity.Id).Select(ActivityRead.Projection).FirstAsync(ct), ct);
     }
 }

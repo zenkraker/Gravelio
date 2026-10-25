@@ -1,8 +1,7 @@
-using System.Text.Json;
 using FastEndpoints;
-using Gravelio.Api.Activities.Import;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
+using Gravelio.Api.Privacy;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Activities;
@@ -13,8 +12,16 @@ public sealed class GetActivityEndpoint(AppDb db) : Endpoint<IdRequest, Activity
 
     public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
-        var activity = await db.Activities.AsNoTracking().OwnedBy(User.UserId(), req.Id).Select(ActivityRead.Projection).FirstOrDefaultAsync(ct);
-        if (activity is null) await Send.NotFoundAsync(ct);
-        else await Send.OkAsync(activity, ct);
+        var me = User.UserId();
+        var activity = await db.Activities.AsNoTracking().VisibleTo(db, me).Where(a => a.Id == req.Id)
+            .Select(ActivityRead.Projection).FirstOrDefaultAsync(ct);
+        if (activity is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+        if (activity.Owner.Id != me)
+            activity = PrivacyMask.Apply(activity, await PrivacyMask.ForOwnerAsync(db, activity.Owner.Id, ct), false);
+        await Send.OkAsync(activity, ct);
     }
 }

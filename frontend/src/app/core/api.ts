@@ -25,8 +25,8 @@ export interface Activity {
   description: string | null;
   distance: number;
   activity_type: number;
-  start_time: string;
-  end_time: string;
+  start_time: string | null;
+  end_time: string | null;
   timezone: string | null;
   total_elapsed_time: number;
   total_timer_time: number;
@@ -47,6 +47,30 @@ export interface Activity {
   tracker_manufacturer: string | null;
   tracker_model: string | null;
   gear_id: number | null;
+  owner: Person;
+}
+
+export interface Person {
+  id: number;
+  name: string;
+  username: string;
+  city: string | null;
+}
+
+export interface Follow {
+  follower_id: number;
+  followee_id: number;
+  status: 'pending' | 'accepted';
+  follower: Person;
+  followee: Person;
+}
+
+export interface PersonProfile {
+  person: Person;
+  followers: number;
+  following: number;
+  outgoing: Follow | null;
+  incoming: Follow | null;
 }
 
 export interface Paged<T> {
@@ -129,4 +153,18 @@ export interface WeightEntry {
   weight: number;
   body_fat: number | null;
   source: string | null;
+}
+
+export interface PrivacySettings {
+  default_activity_visibility: number;
+  hide_activity_start_time: boolean;
+  hide_activity_location: boolean;
+  hide_activity_map: boolean;
+  hide_activity_hr: boolean;
+  hide_activity_power: boolean;
+  hide_activity_cadence: boolean;
+  hide_activity_elevation: boolean;
+  hide_activity_speed: boolean;
+  hide_activity_pace: boolean;
+  hide_activity_gear: boolean;
 }

@@ -47,7 +47,8 @@ export function speedValue(mps: number, units: Units): number {
 export const PACE_TYPES = new Set([1, 2, 3, 11, 12, 31, 34, 40, 44]);
 
 /** Shows an instant in the timezone the activity happened in. */
-export function formatDateTime(iso: string, timeZone: string | null): string {
+export function formatDateTime(iso: string | null, timeZone: string | null): string {
+  if (!iso) return '—';
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',

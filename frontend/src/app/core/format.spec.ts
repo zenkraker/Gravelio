@@ -37,10 +37,11 @@ describe('format', () => {
     expect(formatElevation(null, 'metric')).toBe('—');
   });
 
-  it('shows instants in the activity timezone', () => {
+  it('shows instants in the activity timezone and a dash when hidden', () => {
     const lisbonSummer = formatDateTime('2026-07-01T12:00:00Z', 'Europe/Lisbon');
     const utc = formatDateTime('2026-07-01T12:00:00Z', null);
     expect(lisbonSummer).not.toBe(utc);
+    expect(formatDateTime(null, null)).toBe('—');
   });
 
   it('converts body weight both ways', () => {

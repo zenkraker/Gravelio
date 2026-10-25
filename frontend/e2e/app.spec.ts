@@ -31,12 +31,23 @@ async function expectAccessible(page: Page): Promise<void> {
   ).toEqual([]);
 }
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(page: Page, username = 'admin', password = PASSWORD): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('Username').fill('admin');
-  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
+}
+
+async function signOut(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+}
+
+/** The SPA's antiforgery token, echoed the same way Angular's XSRF support does. */
+async function xsrf(page: Page): Promise<string> {
+  const token = (await page.context().cookies()).find((c) => c.name === 'XSRF-TOKEN')?.value;
+  return token ? decodeURIComponent(token) : '';
 }
 
 test.beforeEach(async ({ page }) => {
@@ -68,12 +79,22 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
 
   await page.getByRole('link', { name: 'E2E run' }).first().click();
   await expect(page.getByRole('heading', { name: 'E2E run', level: 1 })).toBeVisible();
+  const visibility = page.waitForResponse(
+    (r) => /\/activities\/\d+$/.test(r.url()) && r.request().method() === 'PUT',
+  );
+  await page.getByRole('combobox', { name: 'Visibility' }).click();
+  await page.getByRole('option', { name: 'Public' }).click();
+  expect((await visibility).ok()).toBe(true);
   await expect(page.getByRole('region', { name: 'Route map' })).toBeVisible();
   await expect(page.getByRole('img', { name: /Heart rate/ })).toBeVisible();
   await expectAccessible(page);
 
   await page.getByRole('link', { name: /Administrator/ }).click();
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Hide heart rate' })).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Hide heart rate' }).check();
+  await page.getByRole('button', { name: 'Save privacy' }).click();
+  await expect(page.getByText('Privacy saved')).toBeVisible();
   await expectAccessible(page);
 
   await page.getByRole('link', { name: 'Users' }).click();
@@ -146,6 +167,76 @@ test('log a weight reading, replace it the same day, delete it', async ({ page }
   await page.getByRole('button', { name: /Delete the reading from 2026-02-14/ }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('row', { name: /Feb 14, 2026/ })).toHaveCount(0);
+});
+
+test('follow a user, accept the request, and see their public activity in the feed', async ({
+  page,
+}) => {
+  const suffix = Date.now();
+  const username = `e2e.fan${suffix}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+
+  const created = await page.request.post('/api/v1/users', {
+    headers,
+    data: {
+      name: 'E2E Fan',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers,
+    multipart: { file: { name: 'feed.gpx', mimeType: 'application/gpx+xml', buffer: gpx() } },
+  });
+  expect(upload.ok()).toBe(true);
+  const [activity] = await upload.json();
+  const title = `E2E feed run ${suffix}`;
+  const visibility = await page.request.fetch(`/api/v1/activities/${activity.id}`, {
+    method: 'PUT',
+    headers,
+    data: { name: title, description: null, activity_type: activity.activity_type, visibility: 0 },
+  });
+  expect(visibility.ok()).toBe(true);
+
+  await signOut(page);
+  await signIn(page, username, password);
+  await page.getByRole('link', { name: 'People', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole('link', { name: 'Administrator' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Administrator', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Follow', exact: true }).click();
+  await expect(page.getByText('Follow request sent')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Requested', exact: true })).toBeDisabled();
+  await expectAccessible(page);
+
+  await signOut(page);
+  await signIn(page);
+  await page.getByRole('link', { name: 'People', exact: true }).click();
+  const accept = page.getByRole('button', { name: 'Accept request from E2E Fan' });
+  await expect(accept).toBeVisible();
+  await accept.click();
+  await expect(page.getByText('Request accepted')).toBeVisible();
+  await expect(accept).toHaveCount(0);
+
+  await signOut(page);
+  await signIn(page, username, password);
+  await page.getByRole('link', { name: 'People', exact: true }).click();
+  await page.getByRole('link', { name: 'Administrator' }).first().click();
+  await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole('link', { name: 'Activities', exact: true }).click();
+  await page.getByRole('button', { name: 'Following', exact: true }).click();
+  await expect(page.getByRole('link', { name: title })).toBeVisible();
+  await expectAccessible(page);
 });
 
 test('sign out ends the session', async ({ page }) => {

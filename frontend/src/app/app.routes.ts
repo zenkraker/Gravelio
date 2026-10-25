@@ -34,6 +34,16 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/gear-detail').then((m) => m.GearDetail),
       },
       {
+        path: 'people',
+        title: 'People',
+        loadComponent: () => import('./pages/people').then((m) => m.People),
+      },
+      {
+        path: 'people/:id',
+        title: 'Profile',
+        loadComponent: () => import('./pages/person').then((m) => m.PersonPage),
+      },
+      {
         path: 'weight',
         title: 'Weight',
         loadComponent: () => import('./pages/weight').then((m) => m.Weight),

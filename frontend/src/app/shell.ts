@@ -38,6 +38,14 @@ import { AuthService } from './core/auth';
           i18n
           >Weight</a
         >
+        <a
+          mat-button
+          routerLink="/people"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          i18n
+          >People</a
+        >
         @if (auth.isAdmin()) {
           <a
             mat-button

@@ -43,7 +43,7 @@ import { RouteMap } from '../components/route-map';
     StreamChart,
   ],
   template: `
-    <a mat-button routerLink="/activities"
+    <a mat-button [routerLink]="backLink()"
       ><mat-icon aria-hidden="true">arrow_back</mat-icon><span i18n>All activities</span></a
     >
     @if (activity.error()) {
@@ -54,23 +54,43 @@ import { RouteMap } from '../components/route-map';
         <div>
           <h1>{{ a.name }}</h1>
           <p>{{ types.name(a.activity_type) }} · {{ when(a.start_time, a.timezone) }}</p>
+          @if (!isOwner()) {
+            <p>
+              <span i18n>Shared by</span>
+              <a [routerLink]="['/people', a.owner.id]">{{ a.owner.name }}</a>
+            </p>
+          }
         </div>
-        <button mat-button type="button" (click)="confirmDelete(a)">
-          <mat-icon aria-hidden="true">delete</mat-icon><span i18n>Delete</span>
-        </button>
+        @if (isOwner()) {
+          <button mat-button type="button" (click)="confirmDelete(a)">
+            <mat-icon aria-hidden="true">delete</mat-icon><span i18n>Delete</span>
+          </button>
+        }
       </header>
       @if (a.description) {
         <p>{{ a.description }}</p>
       }
-      <mat-form-field class="gear">
-        <mat-label i18n>Gear</mat-label>
-        <mat-select [value]="'' + (a.gear_id ?? '')" (selectionChange)="setGear($event.value)">
-          <mat-option value="" i18n>No gear</mat-option>
-          @for (g of gearChoices(a.gear_id); track g.id) {
-            <mat-option [value]="'' + g.id">{{ g.nickname }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      @if (isOwner()) {
+        <div class="owner-controls">
+          <mat-form-field class="gear">
+            <mat-label i18n>Gear</mat-label>
+            <mat-select [value]="'' + (a.gear_id ?? '')" (selectionChange)="setGear($event.value)">
+              <mat-option value="" i18n>No gear</mat-option>
+              @for (g of gearChoices(a.gear_id); track g.id) {
+                <mat-option [value]="'' + g.id">{{ g.nickname }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="visibility">
+            <mat-label i18n>Visibility</mat-label>
+            <mat-select [value]="'' + a.visibility" (selectionChange)="setVisibility($event.value)">
+              <mat-option value="0" i18n>Public</mat-option>
+              <mat-option value="1" i18n>Followers</mat-option>
+              <mat-option value="2" i18n>Private</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      }
       <dl class="stats">
         <div>
           <dt i18n>Distance</dt>
@@ -194,6 +214,14 @@ import { RouteMap } from '../components/route-map';
     .gear {
       max-width: 320px;
     }
+    .owner-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .visibility {
+      max-width: 200px;
+    }
   `,
 })
 export class ActivityDetail {
@@ -207,15 +235,22 @@ export class ActivityDetail {
   protected readonly types = inject(ActivityTypes);
 
   protected readonly activity = httpResource<Activity>(() => `/api/v1/activities/${this.id()}`);
-  private readonly gears = httpResource<Paged<Gear>>(() => ({
-    url: '/api/v1/gears',
-    params: { page_size: 100 },
-  }));
+  private readonly gears = httpResource<Paged<Gear>>(() =>
+    this.isOwner() ? { url: '/api/v1/gears', params: { page_size: 100 } } : undefined,
+  );
   private readonly streams = httpResource<ActivityStream[]>(
     () => `/api/v1/activities/${this.id()}/streams`,
   );
 
   private readonly units = computed(() => this.auth.user()?.units ?? 'metric');
+  protected readonly isOwner = computed(() => {
+    const a = this.activity.value();
+    return !!a && a.owner.id === this.auth.user()?.id;
+  });
+  protected readonly backLink = computed(() => {
+    const a = this.activity.value();
+    return a && a.owner.id !== this.auth.user()?.id ? ['/people', a.owner.id] : '/activities';
+  });
   protected readonly distance = (m: number) => formatDistance(m, this.units());
   protected readonly duration = formatDuration;
   protected readonly pace = (p: number | null) => formatPace(p, this.units());
@@ -259,14 +294,33 @@ export class ActivityDetail {
     }
   }
 
+  protected async setVisibility(value: string): Promise<void> {
+    const a = this.activity.value();
+    if (!a) return;
+    try {
+      await firstValueFrom(
+        this.http.put(`/api/v1/activities/${a.id}`, {
+          name: a.name,
+          description: a.description,
+          activity_type: a.activity_type,
+          visibility: Number(value),
+        }),
+      );
+      this.activity.reload();
+    } catch (err) {
+      this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
+    }
+  }
+
   private waypoints(type: number) {
     return this.streams.value()?.find((s) => s.stream_type === type)?.waypoints ?? [];
   }
 
   private series(type: number, key: string, convert: (value: number) => number): ChartPoint[] {
-    const start = Date.parse(this.activity.value()?.start_time ?? '');
+    const startTime = this.activity.value()?.start_time;
+    const origin = startTime ? Date.parse(startTime) : 0;
     return this.waypoints(type).map((w) => ({
-      x: (Date.parse(w.time) - start) / 1000,
+      x: (Date.parse(w.time) - origin) / 1000,
       y: convert(Number(w[key])),
     }));
   }

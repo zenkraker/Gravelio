@@ -177,6 +177,43 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("DefaultGears");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.Follow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FolloweeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FollowerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FolloweeId");
+
+                    b.HasIndex("FollowerId", "FolloweeId")
+                        .IsUnique();
+
+                    b.ToTable("Follows", t =>
+                        {
+                            t.HasCheckConstraint("CK_Follows_NotSelf", "\"FollowerId\" <> \"FolloweeId\"");
+
+                            t.HasCheckConstraint("CK_Follows_Status", "\"Status\" IN ('pending', 'accepted')");
+                        });
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.Gear", b =>
                 {
                     b.Property<int>("Id")
@@ -437,6 +474,61 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.UserPrivacySettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DefaultActivityVisibility")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("HideActivityCadence")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityElevation")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityGear")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityHr")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityLocation")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityMap")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityPace")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityPower")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivitySpeed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HideActivityStartTime")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserPrivacySettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_UserPrivacySettings_Visibility", "\"DefaultActivityVisibility\" BETWEEN 0 AND 2");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
                 {
                     b.Property<int>("Id")
@@ -611,6 +703,25 @@ namespace Gravelio.Api.Data.Migrations
                     b.Navigation("Gear");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.Follow", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", "Followee")
+                        .WithMany()
+                        .HasForeignKey("FolloweeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Gravelio.Api.Data.User", "Follower")
+                        .WithMany()
+                        .HasForeignKey("FollowerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Followee");
+
+                    b.Navigation("Follower");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.Gear", b =>
                 {
                     b.HasOne("Gravelio.Api.Data.User", "User")
@@ -640,6 +751,17 @@ namespace Gravelio.Api.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.UserPrivacySettings", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Gravelio.Api.Data.UserPrivacySettings", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>

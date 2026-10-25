@@ -22,6 +22,6 @@ public sealed class UpdateActivityEndpoint(AppDb db) : Endpoint<UpdateActivityRe
         }
         (activity.Name, activity.Description, activity.ActivityType, activity.Visibility) = (req.Name, req.Description, req.ActivityType, req.Visibility);
         await db.SaveChangesAsync(ct);
-        await Send.OkAsync(ActivityRead.From(activity), ct);
+        await Send.OkAsync(await db.Activities.AsNoTracking().Where(a => a.Id == activity.Id).Select(ActivityRead.Projection).FirstAsync(ct), ct);
     }
 }

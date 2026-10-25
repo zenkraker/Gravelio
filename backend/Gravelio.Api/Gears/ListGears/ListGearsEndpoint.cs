@@ -14,7 +14,7 @@ public sealed class ListGearsEndpoint(AppDb db) : Endpoint<ListGearsRequest, Pag
     {
         var userId = User.UserId();
         var query = db.Gears.AsNoTracking().Where(g => g.UserId == userId);
-        if (!string.IsNullOrWhiteSpace(req.Q)) query = query.Where(g => EF.Functions.ILike(g.Nickname, GearQueries.ContainsPattern(req.Q.Trim()), "\\"));
+        if (!string.IsNullOrWhiteSpace(req.Q)) query = query.Where(g => EF.Functions.ILike(g.Nickname, QueryExtensions.ContainsPattern(req.Q.Trim()), "\\"));
         if (req.GearType is { } type) query = query.Where(g => g.GearType == type);
         if (req.Active is { } active) query = query.Where(g => g.Active == active);
 

@@ -120,6 +120,42 @@ public class DefaultGear
     public Gear Gear { get; set; } = null!;
 }
 
+/// A follow request, pending until the followee accepts it.
+public class Follow
+{
+    public int Id { get; set; }
+    public int FollowerId { get; set; }
+    public User Follower { get; set; } = null!;
+    public int FolloweeId { get; set; }
+    public User Followee { get; set; } = null!;
+    public required string Status { get; set; } = FollowStatuses.Pending;
+    public DateTime CreatedAt { get; set; }
+}
+
+public static class FollowStatuses
+{
+    public const string Pending = "pending", Accepted = "accepted";
+}
+
+/// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
+public class UserPrivacySettings
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public int DefaultActivityVisibility { get; set; } = Visibilities.Private;
+    public bool HideActivityStartTime { get; set; }
+    public bool HideActivityLocation { get; set; }
+    public bool HideActivityMap { get; set; }
+    public bool HideActivityHr { get; set; }
+    public bool HideActivityPower { get; set; }
+    public bool HideActivityCadence { get; set; }
+    public bool HideActivityElevation { get; set; }
+    public bool HideActivitySpeed { get; set; }
+    public bool HideActivityPace { get; set; }
+    public bool HideActivityGear { get; set; }
+}
+
 /// One body-composition reading per user and day.
 public class HealthWeight
 {
@@ -148,6 +184,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<GearComponent> GearComponents => Set<GearComponent>();
     public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
     public DbSet<HealthWeight> HealthWeights => Set<HealthWeight>();
+    public DbSet<Follow> Follows => Set<Follow>();
+    public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -173,6 +211,22 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<HealthWeight>().HasIndex(w => new { w.UserId, w.Date }).IsUnique();
         foreach (var p in new[] { nameof(HealthWeight.Weight), nameof(HealthWeight.Bmi), nameof(HealthWeight.BodyFat), nameof(HealthWeight.BodyWater), nameof(HealthWeight.BoneMass), nameof(HealthWeight.MuscleMass), nameof(HealthWeight.VisceralFat) })
             b.Entity<HealthWeight>().Property(p).HasPrecision(10, 2);
+        b.Entity<Follow>().HasOne(f => f.Follower).WithMany().HasForeignKey(f => f.FollowerId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Follow>().HasOne(f => f.Followee).WithMany().HasForeignKey(f => f.FolloweeId).OnDelete(DeleteBehavior.Cascade);
+        // One relationship per direction; the follow endpoint relies on this to reject parallel requests.
+        b.Entity<Follow>().HasIndex(f => new { f.FollowerId, f.FolloweeId }).IsUnique();
+        b.Entity<Follow>().HasIndex(f => f.FolloweeId);
+        b.Entity<Follow>().Property(f => f.Status).HasMaxLength(20);
+        b.Entity<Follow>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Follows_NotSelf", "\"FollowerId\" <> \"FolloweeId\"");
+            t.HasCheckConstraint("CK_Follows_Status", "\"Status\" IN ('pending', 'accepted')");
+        });
+        b.Entity<UserPrivacySettings>().HasOne(p => p.User).WithOne().HasForeignKey<UserPrivacySettings>(p => p.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Entity<UserPrivacySettings>().HasIndex(p => p.UserId).IsUnique();
+        b.Entity<UserPrivacySettings>().ToTable(t =>
+            t.HasCheckConstraint("CK_UserPrivacySettings_Visibility", "\"DefaultActivityVisibility\" BETWEEN 0 AND 2"));
         b.Entity<Activity>().HasMany(a => a.Streams).WithOne().HasForeignKey(s => s.ActivityId).OnDelete(DeleteBehavior.Cascade);
     }
 }
