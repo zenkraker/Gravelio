@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DefaultGearSlot, GearPage, problemMessage } from '../core/api';
+import { DefaultGearSlot, Gear, Paged, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import { GEAR_TYPES, formatMoney, gearTypeLabel } from '../core/gear';
@@ -277,7 +277,7 @@ export class Gears {
   protected readonly money = (v: number) => formatMoney(v, this.currency());
   protected readonly typeLabel = gearTypeLabel;
 
-  protected readonly gears = httpResource<GearPage>(() => ({
+  protected readonly gears = httpResource<Paged<Gear>>(() => ({
     url: '/api/v1/gears',
     params: {
       page: this.pageIndex(),
@@ -288,7 +288,7 @@ export class Gears {
     },
   }));
   protected readonly defaults = httpResource<DefaultGearSlot[]>(() => '/api/v1/gears/defaults');
-  private readonly activeGear = httpResource<GearPage>(() => ({
+  private readonly activeGear = httpResource<Paged<Gear>>(() => ({
     url: '/api/v1/gears',
     params: { page_size: 100, active: true },
   }));

@@ -7,7 +7,6 @@ using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Gravelio.Api.Activities;
 
@@ -27,8 +26,6 @@ public sealed record ActivityRead(int Id, string? Name, string? Description, int
     public static ActivityRead From(Activity a) => Compiled(a);
 }
 
-public sealed record ActivityPage(List<ActivityRead> Items, int Total, int Page, int PageSize);
-
 public sealed class ActivityTypesEndpoint : EndpointWithoutRequest<IReadOnlyDictionary<int, string>>
 {
     public override void Configure() => Get("/activities/types");
@@ -36,48 +33,29 @@ public sealed class ActivityTypesEndpoint : EndpointWithoutRequest<IReadOnlyDict
     public override Task HandleAsync(CancellationToken ct) => Send.OkAsync(ActivityTypes.Names, ct);
 }
 
-public sealed class ListActivitiesRequest
-{
-    public int Page { get; init; } = 1;
+public sealed class ListActivitiesRequest : PagedRequest;
 
-    [BindFrom("page_size")]
-    public int PageSize { get; init; } = 20;
-}
+public sealed class ListActivitiesValidator : PagedValidator<ListActivitiesRequest>;
 
-public sealed class ListActivitiesValidator : Validator<ListActivitiesRequest>
-{
-    public ListActivitiesValidator()
-    {
-        RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
-        RuleFor(x => x.PageSize).InclusiveBetween(1, 100);
-    }
-}
-
-public sealed class ListActivitiesEndpoint(AppDb db) : Endpoint<ListActivitiesRequest, ActivityPage>
+public sealed class ListActivitiesEndpoint(AppDb db) : Endpoint<ListActivitiesRequest, PagedResult<ActivityRead>>
 {
     public override void Configure() => Get("/activities");
 
     public override async Task HandleAsync(ListActivitiesRequest req, CancellationToken ct)
     {
         var userId = User.UserId();
-        var query = db.Activities.AsNoTracking().Where(a => a.UserId == userId);
-        var items = await query.OrderByDescending(a => a.StartTime).Skip((req.Page - 1) * req.PageSize).Take(req.PageSize)
-            .Select(ActivityRead.Projection).ToListAsync(ct);
-        await Send.OkAsync(new ActivityPage(items, await query.CountAsync(ct), req.Page, req.PageSize), ct);
+        await Send.OkAsync(await db.Activities.AsNoTracking().Where(a => a.UserId == userId).OrderByDescending(a => a.StartTime)
+            .ToPageAsync(req, page => page.Select(ActivityRead.Projection), ct), ct);
     }
 }
 
-public sealed record ActivityIdRequest(int Id);
-
-public sealed class GetActivityEndpoint(AppDb db) : Endpoint<ActivityIdRequest, ActivityRead>
+public sealed class GetActivityEndpoint(AppDb db) : Endpoint<IdRequest, ActivityRead>
 {
     public override void Configure() => Get("/activities/{id:int}");
 
-    public override async Task HandleAsync(ActivityIdRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
-        var userId = User.UserId();
-        var activity = await db.Activities.AsNoTracking().Where(a => a.Id == req.Id && a.UserId == userId)
-            .Select(ActivityRead.Projection).FirstOrDefaultAsync(ct);
+        var activity = await db.Activities.AsNoTracking().OwnedBy(User.UserId(), req.Id).Select(ActivityRead.Projection).FirstOrDefaultAsync(ct);
         if (activity is null) await Send.NotFoundAsync(ct);
         else await Send.OkAsync(activity, ct);
     }
@@ -85,7 +63,7 @@ public sealed class GetActivityEndpoint(AppDb db) : Endpoint<ActivityIdRequest, 
 
 public sealed record StreamRead(int StreamType, JsonElement Waypoints);
 
-public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<ActivityIdRequest, List<StreamRead>>
+public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<IdRequest, List<StreamRead>>
 {
     // Clone lets the JsonDocument (and its pooled buffers) be released right away.
     static JsonElement ParseWaypoints(string json)
@@ -96,10 +74,9 @@ public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<ActivityIdRequest, L
 
     public override void Configure() => Get("/activities/{id:int}/streams");
 
-    public override async Task HandleAsync(ActivityIdRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
-        var userId = User.UserId();
-        if (!await db.Activities.AnyAsync(a => a.Id == req.Id && a.UserId == userId, ct))
+        if (!await db.Activities.OwnedBy(User.UserId(), req.Id).AnyAsync(ct))
         {
             await Send.NotFoundAsync(ct);
             return;
@@ -129,7 +106,7 @@ public sealed class UpdateActivityEndpoint(AppDb db) : Endpoint<UpdateActivityRe
     public override async Task HandleAsync(UpdateActivityRequest req, CancellationToken ct)
     {
         var userId = User.UserId();
-        var activity = await db.Activities.FirstOrDefaultAsync(a => a.Id == req.Id && a.UserId == userId, ct);
+        var activity = await db.Activities.OwnedBy(userId, req.Id).FirstOrDefaultAsync(ct);
         if (activity is null)
         {
             await Send.NotFoundAsync(ct);
@@ -151,7 +128,7 @@ public sealed class SetActivityGearEndpoint(AppDb db) : Endpoint<SetActivityGear
     public override async Task HandleAsync(SetActivityGearRequest req, CancellationToken ct)
     {
         var userId = User.UserId();
-        var activity = await db.Activities.FirstOrDefaultAsync(a => a.Id == req.Id && a.UserId == userId, ct);
+        var activity = await db.Activities.OwnedBy(userId, req.Id).FirstOrDefaultAsync(ct);
         if (activity is null)
         {
             await Send.NotFoundAsync(ct);
@@ -166,14 +143,13 @@ public sealed class SetActivityGearEndpoint(AppDb db) : Endpoint<SetActivityGear
     }
 }
 
-public sealed class DeleteActivityEndpoint(AppDb db) : Endpoint<ActivityIdRequest>
+public sealed class DeleteActivityEndpoint(AppDb db) : Endpoint<IdRequest>
 {
     public override void Configure() => Delete("/activities/{id:int}");
 
-    public override async Task HandleAsync(ActivityIdRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
-        var userId = User.UserId();
-        if (await db.Activities.Where(a => a.Id == req.Id && a.UserId == userId).ExecuteDeleteAsync(ct) > 0) await Send.NoContentAsync(ct);
+        if (await db.Activities.OwnedBy(User.UserId(), req.Id).ExecuteDeleteAsync(ct) > 0) await Send.NoContentAsync(ct);
         else await Send.NotFoundAsync(ct);
     }
 }
@@ -234,10 +210,7 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var starts = built.Select(a => a.StartTime).ToList();
         var existing = await db.Activities.Where(a => a.UserId == userId && starts.Contains(a.StartTime)).Select(a => a.StartTime).ToListAsync(ct);
         var fresh = built.Where(a => !existing.Contains(a.StartTime)).ToList();
-        if (fresh.Count == 0)
-        {
-            ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
-        }
+        if (fresh.Count == 0) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         var now = time.GetUtcNow().UtcDateTime;
         // Pre-select the user's default gear for each activity type (retired gear is skipped).
         var defaults = await db.DefaultGears.Where(d => d.UserId == userId && d.Gear.Active).ToDictionaryAsync(d => d.ActivityType, d => d.GearId, ct);
@@ -247,15 +220,8 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
             if (defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
         }
         db.Activities.AddRange(fresh);
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            // A parallel upload of the same recording won the race the check above can't prevent.
-            ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
-        }
+        // A parallel upload of the same recording can win the race the check above can't prevent.
+        if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         await Send.OkAsync(fresh.Select(ActivityRead.From).ToList(), ct);
     }
 }

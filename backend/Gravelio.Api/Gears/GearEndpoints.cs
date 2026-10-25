@@ -9,8 +9,6 @@ namespace Gravelio.Api.Gears;
 public sealed record GearRead(int Id, string Nickname, string? Brand, string? Model, int GearType, bool Active, double InitialDistance,
     decimal? PurchaseValue, DateTime CreatedAt, double TotalDistance, int ActivityCount);
 
-public sealed record GearPage(List<GearRead> Items, int Total, int Page, int PageSize);
-
 public static class GearQueries
 {
     /// Reads gear with its usage in one SQL query. Distance and count come only from the owner's own activities.
@@ -19,20 +17,12 @@ public static class GearQueries
         g.InitialDistance + (db.Activities.Where(a => a.GearId == g.Id && a.UserId == g.UserId).Sum(a => (int?)a.Distance) ?? 0),
         db.Activities.Count(a => a.GearId == g.Id && a.UserId == g.UserId)));
 
-    /// The caller's gear with this id; another user's gear is indistinguishable from a missing one.
-    public static IQueryable<Gear> OwnedBy(this IQueryable<Gear> gears, int userId, int id) => gears.Where(g => g.Id == id && g.UserId == userId);
-
     /// Escapes LIKE wildcards (with backslash, which the query must name as its escape character) so a search for "50%" matches the text "50%", not everything.
     public static string ContainsPattern(string text) => "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 }
 
-public sealed class ListGearsRequest
+public sealed class ListGearsRequest : PagedRequest
 {
-    public int Page { get; init; } = 1;
-
-    [BindFrom("page_size")]
-    public int PageSize { get; init; } = 20;
-
     /// Nickname contains this text, ignoring case.
     public string? Q { get; init; }
 
@@ -42,18 +32,16 @@ public sealed class ListGearsRequest
     public bool? Active { get; init; }
 }
 
-public sealed class ListGearsValidator : Validator<ListGearsRequest>
+public sealed class ListGearsValidator : PagedValidator<ListGearsRequest>
 {
     public ListGearsValidator()
     {
-        RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
-        RuleFor(x => x.PageSize).InclusiveBetween(1, 100);
         RuleFor(x => x.Q).MaximumLength(250);
         RuleFor(x => x.GearType!.Value).Must(GearTypes.IsValid).When(x => x.GearType is not null).WithMessage("Unknown gear type");
     }
 }
 
-public sealed class ListGearsEndpoint(AppDb db) : Endpoint<ListGearsRequest, GearPage>
+public sealed class ListGearsEndpoint(AppDb db) : Endpoint<ListGearsRequest, PagedResult<GearRead>>
 {
     public override void Configure() => Get("/gears");
 
@@ -65,18 +53,15 @@ public sealed class ListGearsEndpoint(AppDb db) : Endpoint<ListGearsRequest, Gea
         if (req.GearType is { } type) query = query.Where(g => g.GearType == type);
         if (req.Active is { } active) query = query.Where(g => g.Active == active);
 
-        var items = await query.OrderBy(g => g.Nickname).ThenBy(g => g.Id).Skip((req.Page - 1) * req.PageSize).Take(req.PageSize).ToRead(db).ToListAsync(ct);
-        await Send.OkAsync(new GearPage(items, await query.CountAsync(ct), req.Page, req.PageSize), ct);
+        await Send.OkAsync(await query.OrderBy(g => g.Nickname).ThenBy(g => g.Id).ToPageAsync(req, page => page.ToRead(db), ct), ct);
     }
 }
 
-public sealed record GearIdRequest(int Id);
-
-public sealed class GetGearEndpoint(AppDb db) : Endpoint<GearIdRequest, GearRead>
+public sealed class GetGearEndpoint(AppDb db) : Endpoint<IdRequest, GearRead>
 {
     public override void Configure() => Get("/gears/{id:int}");
 
-    public override async Task HandleAsync(GearIdRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
         var gear = await db.Gears.AsNoTracking().OwnedBy(User.UserId(), req.Id).ToRead(db).FirstOrDefaultAsync(ct);
         if (gear is null) await Send.NotFoundAsync(ct);
@@ -97,7 +82,7 @@ public sealed class GearWriteValidator : Validator<GearWriteRequest>
         RuleFor(x => x.Model).MaximumLength(250);
         RuleFor(x => x.GearType).Must(GearTypes.IsValid).WithMessage("Unknown gear type");
         RuleFor(x => x.InitialDistance).InclusiveBetween(0, 10_000_000); // meters
-        RuleFor(x => x.PurchaseValue!.Value).InclusiveBetween(0, 1_000_000_000m).When(x => x.PurchaseValue is not null);
+        RuleFor(x => x.PurchaseValue).InclusiveBetween(0, 1_000_000_000m);
     }
 }
 
@@ -154,11 +139,11 @@ public sealed class UpdateGearEndpoint(AppDb db) : Endpoint<GearWriteRequest, Ge
     }
 }
 
-public sealed class DeleteGearEndpoint(AppDb db) : Endpoint<GearIdRequest>
+public sealed class DeleteGearEndpoint(AppDb db) : Endpoint<IdRequest>
 {
     public override void Configure() => Delete("/gears/{id:int}");
 
-    public override async Task HandleAsync(GearIdRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
         // The database unlinks the gear's activities and removes its components and default-gear slots.
         if (await db.Gears.OwnedBy(User.UserId(), req.Id).ExecuteDeleteAsync(ct) > 0) await Send.NoContentAsync(ct);

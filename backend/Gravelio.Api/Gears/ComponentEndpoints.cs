@@ -17,6 +17,7 @@ static class ComponentUsage
 {
     /// Distance covered on the gear from the day a component was bought until the day it was retired, in meters.
     /// Days are compared in UTC, so a ride near midnight can land on the neighbouring day.
+    // shortcut: loads the gear's rides and sums them here, because Npgsql can't compare a date with a timestamptz in SQL; move to SQL if a gear passes ~50k rides.
     public static async Task<Dictionary<int, double>> UsedAsync(AppDb db, int userId, int gearId, IReadOnlyCollection<GearComponent> components, CancellationToken ct)
     {
         if (components.Count == 0) return [];
@@ -42,13 +43,11 @@ public sealed class ListComponentTypesEndpoint : EndpointWithoutRequest<Dictiona
         Send.OkAsync(Enumerable.Range(GearTypes.Bike, GearTypes.WaterSportsBoard).ToDictionary(t => t, t => GearTypes.ComponentTypesFor(t).Order().ToArray()), ct);
 }
 
-public sealed record GearComponentsRequest(int Id);
-
-public sealed class ListComponentsEndpoint(AppDb db) : Endpoint<GearComponentsRequest, List<ComponentRead>>
+public sealed class ListComponentsEndpoint(AppDb db) : Endpoint<IdRequest, List<ComponentRead>>
 {
     public override void Configure() => Get("/gears/{id:int}/components");
 
-    public override async Task HandleAsync(GearComponentsRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
         if (!await db.Gears.OwnedBy(User.UserId(), req.Id).AnyAsync(ct))
         {
@@ -75,8 +74,8 @@ public sealed class ComponentWriteValidator : Validator<ComponentWriteRequest>
         RuleFor(x => x.PurchaseDate).NotEqual(default(DateOnly)).WithMessage("Enter the purchase date");
         RuleFor(x => x.RetiredDate!.Value).GreaterThanOrEqualTo(x => x.PurchaseDate).When(x => x.RetiredDate is not null)
             .WithMessage("A component can't be retired before it was bought");
-        RuleFor(x => x.ExpectedDistance!.Value).InclusiveBetween(0, 10_000_000).When(x => x.ExpectedDistance is not null); // meters
-        RuleFor(x => x.PurchaseValue!.Value).InclusiveBetween(0, 1_000_000_000m).When(x => x.PurchaseValue is not null);
+        RuleFor(x => x.ExpectedDistance).InclusiveBetween(0, 10_000_000); // meters
+        RuleFor(x => x.PurchaseValue).InclusiveBetween(0, 1_000_000_000m);
     }
 }
 
@@ -119,8 +118,7 @@ public sealed class UpdateComponentEndpoint(AppDb db) : Endpoint<ComponentWriteR
     public override async Task HandleAsync(ComponentWriteRequest req, CancellationToken ct)
     {
         var userId = User.UserId();
-        var component = await db.GearComponents.Include(c => c.Gear)
-            .FirstOrDefaultAsync(c => c.Id == req.ComponentId && c.GearId == req.Id && c.Gear.UserId == userId, ct);
+        var component = await db.GearComponents.Include(c => c.Gear).OwnedBy(userId, req.Id, req.ComponentId).FirstOrDefaultAsync(ct);
         if (component is null)
         {
             await Send.NotFoundAsync(ct);
@@ -142,9 +140,7 @@ public sealed class DeleteComponentEndpoint(AppDb db) : Endpoint<ComponentIdRequ
 
     public override async Task HandleAsync(ComponentIdRequest req, CancellationToken ct)
     {
-        var userId = User.UserId();
-        if (await db.GearComponents.Where(c => c.Id == req.ComponentId && c.GearId == req.Id && c.Gear.UserId == userId).ExecuteDeleteAsync(ct) > 0)
-            await Send.NoContentAsync(ct);
+        if (await db.GearComponents.OwnedBy(User.UserId(), req.Id, req.ComponentId).ExecuteDeleteAsync(ct) > 0) await Send.NoContentAsync(ct);
         else await Send.NotFoundAsync(ct);
     }
 }

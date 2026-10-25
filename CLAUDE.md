@@ -49,7 +49,7 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
 
 ## Backend invariants
 
-- Endpoints MUST use FastEndpoints: one endpoint class per operation, request/response DTOs, and a FluentValidation `Validator<TRequest>` per request. No minimal APIs, MVC controllers or DataAnnotations validation.
+- Endpoints MUST use FastEndpoints: one endpoint class per operation, request/response DTOs, and a FluentValidation `Validator<TRequest>` for every request that carries more than route ids (id-only requests share `IdRequest`; a body id is checked by an ownership lookup that answers 404). Optional numbers use the plain range rule (`RuleFor(x => x.Price).InclusiveBetween(...)`), which skips null. No minimal APIs, MVC controllers or DataAnnotations validation.
 - One API project (`backend/Gravelio.Api`), organised by feature folder (`Auth/`, `Users/`, `Activities/`). No layer projects, repositories or service wrappers over EF Core: endpoints use `AppDb` directly. All entities and `AppDb` live in `Data/AppDb.cs`; the schema is owned by EF Core migrations.
 - Routes are under `/api/v1`. JSON on the wire is snake_case (`JsonNamingPolicy.SnakeCaseLower`), and errors are RFC 7807 problem details.
 - Auth is ASP.NET Core Identity with cookie authentication:
@@ -59,7 +59,7 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
   - Security-sensitive changes (password, role, deactivation) call `UpdateSecurityStampAsync` so other sessions are revoked.
   - Login is rate-limited per IP with `Microsoft.AspNetCore.RateLimiting`.
 - Return errors with `ThrowError(message, statusCode)` (it always throws, so no `return` after it). An endpoint that makes several `UserManager` calls (one admin edit) wraps them in `db.Database.BeginTransactionAsync` and commits only at the end, so a rejected step never leaves a half-applied change.
-- Users only ever see their own activities. Queries filter by the signed-in user's id, and another user's resource returns 404, not 403. Admin-only routes require the `admin` role.
+- Users only ever see their own data. Look a record up through the `OwnedBy(userId, ...)` extensions in `Requests.cs` (activities, gears, components), never with a hand-written filter; another user's resource returns 404, not 403. A missing resource named in the route is `Send.NotFoundAsync`; one named in the body is `ThrowError(r => r.Prop, msg, 404)`. Admin-only routes join `AdminUsersGroup` (it holds the `admin` role requirement once).
 - The first admin is seeded on an empty database from `Admin:Password` (12+ characters). It is required, never generated: a generated password would have to be logged. `DB_PASSWORD` and `ADMIN_PASSWORD` are required by `docker-compose.yml` and empty in `.env.example`.
 - Configuration is bound with the options pattern plus `ValidateDataAnnotations().ValidateOnStart()`, so bad config fails at startup, not on first use. Docker Compose passes unset variables as empty strings, so optional string options must treat blank as unset.
 - `Database.MigrateAsync()` runs at startup only in Development. Production applies an EF migration bundle as a one-shot step before the API container starts. Login-cookie keys are kept on the `api-keys` volume (`DataProtection:KeysPath`), not in the database.
@@ -68,8 +68,9 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
 - Data access:
   - Async all the way, passing the endpoint's `CancellationToken` into EF Core. Never `.Result`, `.Wait()` or `Task.Run` around synchronous code.
   - Reads use `AsNoTracking()` and project to DTOs in the query.
-  - A check-then-insert is never enough on its own: back it with a unique index and turn the `PostgresException` `UniqueViolation` into a 409, as activity upload does for one user and start time.
-  - List endpoints are paged.
+  - A check-then-insert is never enough on its own: back it with a unique index and save with `db.TrySaveUniqueAsync`, turning `false` into a 409, as activity upload and default gear do.
+  - A failed `IdentityResult` becomes `ThrowError(UserRules.Describe(r), UserRules.StatusOf(r))`: 409 for a taken username or email, 400 otherwise.
+  - List endpoints are paged: the request derives from `PagedRequest`, its validator from `PagedValidator<T>`, and the answer is `PagedResult<T>` built with `ToPageAsync`. Only a list bounded by its parent (a gear's components) may be unpaged.
 - The XSRF middleware must run after `UseAuthentication` and before `UseAuthorization`: authorization short-circuits 401s, and the SPA gets its first XSRF token from the 401 response of `GET /users/me`.
 - Client IP and scheme come only from ASP.NET Core's forwarded-headers middleware, which believes `X-Forwarded-*` just from the `TrustedProxies` networks (private ranges by default). Never read `X-Forwarded-For` yourself: a stranger could forge it and walk around the per-IP login limit. `ClientIpTests` covers both directions.
 - Never read `HttpContext` after the request completes or from background work. Background work creates its own scope through `IServiceScopeFactory`.

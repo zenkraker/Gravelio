@@ -236,6 +236,27 @@ public class GearTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Optional_amounts_are_range_checked_only_when_given()
+    {
+        var admin = await api.LoginAsync();
+        Assert.Equal(HttpStatusCode.Created, (await admin.Http.PostAsJsonAsync(Gears, new { Nickname = "No price", GearType = 1 }, ApiClient.Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.Http.PostAsJsonAsync(Gears, new { Nickname = "Negative", GearType = 1, PurchaseValue = -1 }, ApiClient.Json)).StatusCode);
+        int gearId = await CreateAsync(admin, Bike("Amounts bike"));
+        Assert.Equal(HttpStatusCode.BadRequest, (await PostComponentAsync(admin, gearId, "chain", new { ExpectedDistance = -5.0 })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Setting_the_same_default_twice_at_once_never_fails_with_a_server_error()
+    {
+        var admin = await api.LoginAsync();
+        int gearId = await CreateAsync(admin, Bike("Race bike"));
+        var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ =>
+            admin.Http.PutAsJsonAsync($"{Gears}/defaults/4", new { GearId = gearId }, ApiClient.Json)));
+        Assert.All(results, r => Assert.True(r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict, $"got {(int)r.StatusCode}"));
+        Assert.Contains(results, r => r.StatusCode == HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Currency_is_a_profile_setting_with_three_choices()
     {
         var admin = await api.LoginAsync();

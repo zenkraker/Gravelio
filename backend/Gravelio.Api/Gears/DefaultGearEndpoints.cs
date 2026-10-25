@@ -29,7 +29,10 @@ public sealed class SetDefaultGearEndpoint(AppDb db) : Endpoint<SetDefaultGearRe
     public override async Task HandleAsync(SetDefaultGearRequest req, CancellationToken ct)
     {
         if (!GearTypes.DefaultSlots.TryGetValue(req.ActivityType, out var slotGearType))
-            ThrowError("That activity type has no default gear", StatusCodes.Status404NotFound);
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
 
         var userId = User.UserId();
         var existing = await db.DefaultGears.FirstOrDefaultAsync(d => d.UserId == userId && d.ActivityType == req.ActivityType, ct);
@@ -40,13 +43,13 @@ public sealed class SetDefaultGearEndpoint(AppDb db) : Endpoint<SetDefaultGearRe
         else
         {
             var gear = await db.Gears.AsNoTracking().OwnedBy(userId, req.GearId.Value).FirstOrDefaultAsync(ct);
-            if (gear is null) ThrowError("Gear not found", StatusCodes.Status404NotFound);
+            if (gear is null) ThrowError(r => r.GearId, "Gear not found", StatusCodes.Status404NotFound);
             if (!gear.Active) ThrowError("Choose active gear: this one is retired", StatusCodes.Status400BadRequest);
             if (gear.GearType != slotGearType) ThrowError("That kind of gear doesn't fit this activity type", StatusCodes.Status400BadRequest);
             if (existing is null) db.DefaultGears.Add(new DefaultGear { UserId = userId, ActivityType = req.ActivityType, GearId = gear.Id });
             else existing.GearId = gear.Id;
         }
-        await db.SaveChangesAsync(ct);
+        if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This default was changed at the same time. Try again.", StatusCodes.Status409Conflict);
         await Send.OkAsync(new DefaultGearSlot(req.ActivityType, slotGearType, req.GearId), ct);
     }
 }

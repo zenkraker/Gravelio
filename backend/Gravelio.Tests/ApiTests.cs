@@ -156,9 +156,40 @@ public class ApiTests(ApiFixture api)
             new { Name = "Changed", Username = "erin", Email = "erin@example.com", AccessType = "regular", Active = true, Password = "abc" }, ApiClient.Json);
         Assert.Equal(HttpStatusCode.BadRequest, update.StatusCode);
 
-        var users = await admin.GetJsonAsync<JsonElement[]>("/api/v1/users");
+        var users = (await admin.GetJsonAsync<JsonElement>("/api/v1/users?page_size=100")).GetProperty("items").EnumerateArray().ToList();
         Assert.Equal("erin", users.Single(u => u.GetProperty("id").GetInt32() == id).GetProperty("name").GetString()); // name not changed either
         await api.LoginAsync("erin", "Str0ng-pass!"); // old password still works
+    }
+
+    [Fact]
+    public async Task Taken_usernames_are_a_conflict_whether_creating_or_renaming()
+    {
+        var admin = await api.LoginAsync();
+        await api.CreateUserAsync(admin, "gwen2");
+        int id = await api.CreateUserAsync(admin, "hugo2");
+
+        var create = await admin.Http.PostAsJsonAsync("/api/v1/users",
+            new { Name = "x", Username = "gwen2", Email = "other@example.com", AccessType = "regular", Active = true, Password = "Str0ng-pass!" }, ApiClient.Json);
+        var rename = await admin.Http.PutAsJsonAsync($"/api/v1/users/{id}",
+            new { Name = "hugo2", Username = "gwen2", Email = "hugo@example.com", AccessType = "regular", Active = true }, ApiClient.Json);
+        Assert.Equal(HttpStatusCode.Conflict, create.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, rename.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_user_list_is_paged_and_marks_admins()
+    {
+        var admin = await api.LoginAsync();
+        await api.CreateUserAsync(admin, "ivy2");
+        await api.CreateUserAsync(admin, "jon2");
+
+        var page = await admin.GetJsonAsync<JsonElement>("/api/v1/users?page_size=1&page=2");
+        Assert.Equal(1, page.GetProperty("items").GetArrayLength());
+        Assert.True(page.GetProperty("total").GetInt32() >= 3);
+        var all = (await admin.GetJsonAsync<JsonElement>("/api/v1/users?page_size=100")).GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal("admin", all.Single(u => u.GetProperty("username").GetString() == "admin").GetProperty("access_type").GetString());
+        Assert.Equal("regular", all.Single(u => u.GetProperty("username").GetString() == "ivy2").GetProperty("access_type").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.Http.GetAsync("/api/v1/users?page_size=1000")).StatusCode);
     }
 
     [Fact]

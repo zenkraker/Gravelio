@@ -27,6 +27,15 @@ static class UserRules
     public const string UsernamePattern = "^[a-zA-Z0-9.]{1,45}$";
 
     public static string Describe(IdentityResult result) => string.Join(" ", result.Errors.Select(e => e.Description));
+
+    /// A taken username or email is a conflict; any other Identity failure (e.g. a weak password) is a bad request.
+    public static int StatusOf(IdentityResult result) => result.Errors.Any(e => e.Code.StartsWith("Duplicate")) ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest;
+}
+
+/// Everything under /users that only admins may call; the role is declared here once.
+public sealed class AdminUsersGroup : Group
+{
+    public AdminUsersGroup() => Configure("users", ep => ep.Roles(AppRoles.Admin));
 }
 
 public sealed class GetMeEndpoint(UserManager<User> users) : EndpointWithoutRequest<UserRead>
@@ -74,7 +83,7 @@ public sealed class UpdateMeEndpoint(UserManager<User> users, SignInManager<User
         bool emailChanged = !string.Equals(user.Email, req.Email, StringComparison.OrdinalIgnoreCase);
         var result = emailChanged ? await users.SetEmailAsync(user, req.Email) : IdentityResult.Success;
         if (result.Succeeded) result = await users.UpdateAsync(user);
-        if (!result.Succeeded) ThrowError(UserRules.Describe(result), StatusCodes.Status409Conflict);
+        if (!result.Succeeded) ThrowError(UserRules.Describe(result), UserRules.StatusOf(result));
         if (emailChanged) await signIn.RefreshSignInAsync(user); // keep this session; other devices sign in again
         await Send.OkAsync(UserRead.From(user, await users.IsInRoleAsync(user, AppRoles.Admin)), ct);
     }
@@ -99,10 +108,7 @@ public sealed class ChangePasswordEndpoint(UserManager<User> users, SignInManage
     {
         var user = (await users.GetUserAsync(User))!;
         var result = await users.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
-        if (!result.Succeeded)
-        {
-            ThrowError(UserRules.Describe(result), StatusCodes.Status400BadRequest);
-        }
+        if (!result.Succeeded) ThrowError(UserRules.Describe(result), UserRules.StatusOf(result));
         // ChangePasswordAsync rotated the security stamp, which signs out every other session; keep this one.
         await signIn.RefreshSignInAsync(user);
         await Send.NoContentAsync(ct);
@@ -125,20 +131,26 @@ public sealed class AdminUserValidator : Validator<AdminUserRequest>
     }
 }
 
-public sealed class ListUsersEndpoint(AppDb db) : EndpointWithoutRequest<List<UserRead>>
+public sealed class ListUsersRequest : PagedRequest;
+
+public sealed class ListUsersValidator : PagedValidator<ListUsersRequest>;
+
+public sealed class ListUsersEndpoint(AppDb db) : Endpoint<ListUsersRequest, PagedResult<UserRead>>
 {
     public override void Configure()
     {
-        Get("/users");
-        Roles(AppRoles.Admin);
+        Get("");
+        Group<AdminUsersGroup>();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(ListUsersRequest req, CancellationToken ct)
     {
-        var adminIds = await (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id where r.Name == AppRoles.Admin select ur.UserId)
-            .ToListAsync(ct);
-        var all = await db.Users.AsNoTracking().OrderBy(u => u.UserName).ToListAsync(ct);
-        await Send.OkAsync(all.Select(u => UserRead.From(u, adminIds.Contains(u.Id))).ToList(), ct);
+        var adminRoleId = db.Roles.Where(r => r.Name == AppRoles.Admin).Select(r => r.Id);
+        await Send.OkAsync(await db.Users.AsNoTracking().OrderBy(u => u.UserName).ThenBy(u => u.Id).ToPageAsync(req, page => page.Select(u => new
+        {
+            User = u,
+            IsAdmin = db.UserRoles.Any(ur => ur.UserId == u.Id && adminRoleId.Contains(ur.RoleId)),
+        }).Select(x => UserRead.From(x.User, x.IsAdmin)), ct), ct);
     }
 }
 
@@ -146,23 +158,17 @@ public sealed class CreateUserEndpoint(UserManager<User> users, TimeProvider tim
 {
     public override void Configure()
     {
-        Post("/users");
-        Roles(AppRoles.Admin);
+        Post("");
+        Group<AdminUsersGroup>();
     }
 
     public override async Task HandleAsync(AdminUserRequest req, CancellationToken ct)
     {
-        if (req.Password is null)
-        {
-            ThrowError(r => r.Password, "Password is required", StatusCodes.Status400BadRequest);
-        }
+        if (req.Password is null) ThrowError(r => r.Password, "Password is required", StatusCodes.Status400BadRequest);
         var user = new User { Name = req.Name, UserName = req.Username, Email = req.Email, Active = req.Active, CreatedAt = time.GetUtcNow().UtcDateTime };
         var result = await users.CreateAsync(user, req.Password);
         if (result.Succeeded && req.AccessType == AppRoles.Admin) result = await users.AddToRoleAsync(user, AppRoles.Admin);
-        if (!result.Succeeded)
-        {
-            ThrowError(UserRules.Describe(result), result.Errors.Any(e => e.Code.StartsWith("Duplicate")) ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest);
-        }
+        if (!result.Succeeded) ThrowError(UserRules.Describe(result), UserRules.StatusOf(result));
         await Send.CreatedAtAsync<ListUsersEndpoint>(null, UserRead.From(user, req.AccessType == AppRoles.Admin), cancellation: ct);
     }
 }
@@ -171,8 +177,8 @@ public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endp
 {
     public override void Configure()
     {
-        Put("/users/{id:int}");
-        Roles(AppRoles.Admin);
+        Put("{id:int}");
+        Group<AdminUsersGroup>();
     }
 
     public override async Task HandleAsync(AdminUserRequest req, CancellationToken ct)
@@ -186,9 +192,7 @@ public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endp
         bool wasAdmin = await users.IsInRoleAsync(user, AppRoles.Admin);
         bool makeAdmin = req.AccessType == AppRoles.Admin;
         if (req.Id == User.UserId() && (!makeAdmin || !req.Active))
-        {
             ThrowError("You can't remove your own admin access or deactivate yourself", StatusCodes.Status400BadRequest);
-        }
 
         // One transaction: a rejected password or a duplicate name must leave the account exactly as it was.
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -203,31 +207,23 @@ public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endp
         if (result.Succeeded) result = await users.UpdateAsync(user);
         // Role, status and password changes must end the user's current sessions.
         if (result.Succeeded && (makeAdmin != wasAdmin || !req.Active || req.Password is not null)) result = await users.UpdateSecurityStampAsync(user);
-        if (!result.Succeeded)
-        {
-            ThrowError(UserRules.Describe(result), StatusCodes.Status400BadRequest);
-        }
+        if (!result.Succeeded) ThrowError(UserRules.Describe(result), UserRules.StatusOf(result));
         await transaction.CommitAsync(ct);
         await Send.OkAsync(UserRead.From(user, makeAdmin), ct);
     }
 }
 
-public sealed record DeleteUserRequest(int Id);
-
-public sealed class DeleteUserEndpoint(UserManager<User> users) : Endpoint<DeleteUserRequest>
+public sealed class DeleteUserEndpoint(UserManager<User> users) : Endpoint<IdRequest>
 {
     public override void Configure()
     {
-        Delete("/users/{id:int}");
-        Roles(AppRoles.Admin);
+        Delete("{id:int}");
+        Group<AdminUsersGroup>();
     }
 
-    public override async Task HandleAsync(DeleteUserRequest req, CancellationToken ct)
+    public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
-        if (req.Id == User.UserId())
-        {
-            ThrowError("You can't delete yourself", StatusCodes.Status400BadRequest);
-        }
+        if (req.Id == User.UserId()) ThrowError("You can't delete yourself", StatusCodes.Status400BadRequest);
         var user = await users.FindByIdAsync(req.Id.ToString());
         if (user is null) await Send.NotFoundAsync(ct);
         else

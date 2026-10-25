@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Activity, ActivityStream, GearPage, StreamType, problemMessage } from '../core/api';
+import { Activity, ActivityStream, Gear, Paged, StreamType, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import {
@@ -203,7 +203,7 @@ export class ActivityDetail {
   protected readonly types = inject(ActivityTypes);
 
   protected readonly activity = httpResource<Activity>(() => `/api/v1/activities/${this.id()}`);
-  private readonly gears = httpResource<GearPage>(() => ({
+  private readonly gears = httpResource<Paged<Gear>>(() => ({
     url: '/api/v1/gears',
     params: { page_size: 100 },
   }));

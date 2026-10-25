@@ -49,8 +49,8 @@ export interface Activity {
   gear_id: number | null;
 }
 
-export interface ActivityPage {
-  items: Activity[];
+export interface Paged<T> {
+  items: T[];
   total: number;
   page: number;
   page_size: number;
@@ -68,13 +68,6 @@ export interface Gear {
   created_at: string;
   total_distance: number;
   activity_count: number;
-}
-
-export interface GearPage {
-  items: Gear[];
-  total: number;
-  page: number;
-  page_size: number;
 }
 
 export interface GearComponent {

@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivityPage, problemMessage } from '../core/api';
+import { Activity, Paged, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import {
@@ -150,7 +150,7 @@ export class Activities {
   protected readonly pageSize = PAGE_SIZE;
   protected readonly pageIndex = signal(1);
   protected readonly uploading = signal(false);
-  protected readonly page = httpResource<ActivityPage>(() => ({
+  protected readonly page = httpResource<Paged<Activity>>(() => ({
     url: '/api/v1/activities',
     params: { page: this.pageIndex(), page_size: PAGE_SIZE },
   }));

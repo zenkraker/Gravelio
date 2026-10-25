@@ -7,14 +7,22 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { User, problemMessage } from '../core/api';
+import { Paged, User, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 import { ConfirmDialog } from '../components/confirm-dialog';
 
 @Component({
   selector: 'app-users',
-  imports: [FormField, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    FormField,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatPaginatorModule,
+  ],
   template: `
     <h1 i18n>Users</h1>
     <table>
@@ -32,7 +40,7 @@ import { ConfirmDialog } from '../components/confirm-dialog';
         </tr>
       </thead>
       <tbody>
-        @for (u of users.value(); track u.id) {
+        @for (u of users.value()?.items; track u.id) {
           <tr>
             <th scope="row">{{ u.username }}</th>
             <td>{{ u.name }}</td>
@@ -51,6 +59,13 @@ import { ConfirmDialog } from '../components/confirm-dialog';
         }
       </tbody>
     </table>
+    <mat-paginator
+      [length]="users.value()?.total ?? 0"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex() - 1"
+      [hidePageSize]="true"
+      (page)="onPage($event)"
+    />
 
     <h2 i18n>Add user</h2>
     <mat-card appearance="outlined">
@@ -127,7 +142,12 @@ export class Users {
   private snack = inject(MatSnackBar);
   protected readonly me = inject(AuthService).user;
 
-  protected readonly users = httpResource<User[]>(() => '/api/v1/users');
+  protected readonly pageSize = 20;
+  protected readonly pageIndex = signal(1);
+  protected readonly users = httpResource<Paged<User>>(() => ({
+    url: '/api/v1/users',
+    params: { page: this.pageIndex(), page_size: this.pageSize },
+  }));
   protected readonly error = signal('');
   protected readonly activeLabel = $localize`Active`;
   protected readonly inactiveLabel = $localize`Inactive`;
@@ -147,6 +167,10 @@ export class Users {
     required(p.email, { message: $localize`Enter an email` });
     required(p.password, { message: $localize`Enter a password` });
   });
+
+  protected onPage(event: PageEvent): void {
+    this.pageIndex.set(event.pageIndex + 1);
+  }
 
   protected async create(event: Event): Promise<void> {
     event.preventDefault();
