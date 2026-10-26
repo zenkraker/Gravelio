@@ -259,6 +259,8 @@ export interface ServerSettings {
   signup_require_admin_approval: boolean;
   public_shareable_links: boolean;
   public_shareable_links_user_info: boolean;
+  sso_auto_redirect: boolean;
+  local_login_enabled: boolean;
 }
 
 export interface ServerSettingsRead extends ServerSettings {
@@ -268,6 +270,28 @@ export interface ServerSettingsRead extends ServerSettings {
 export interface PublicSettings {
   signup_enabled: boolean;
   public_shareable_links: boolean;
+  local_login_enabled: boolean;
+  sso_auto_redirect: boolean;
+  sso_providers: { slug: string; name: string }[];
+}
+
+/** An identity provider as an admin sees it; the client secret is never sent back, only whether one is stored. */
+export interface SsoProvider {
+  id: number;
+  name: string;
+  slug: string;
+  issuer: string;
+  client_id: string;
+  has_secret: boolean;
+  scopes: string;
+  enabled: boolean;
+  auto_create_users: boolean;
+}
+
+export interface MySso {
+  slug: string;
+  name: string;
+  linked: boolean;
 }
 
 /** What a share link shows an anonymous visitor: no account, gear, device or visibility. */

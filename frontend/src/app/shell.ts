@@ -100,6 +100,14 @@ import { Notifications } from './core/notifications';
           >
           <a
             mat-button
+            routerLink="/sso-providers"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            i18n
+            >Sign-in providers</a
+          >
+          <a
+            mat-button
             routerLink="/server-settings"
             routerLinkActive="active"
             ariaCurrentWhenActive="page"
@@ -129,6 +137,16 @@ import { Notifications } from './core/notifications';
     mat-toolbar {
       background: var(--mat-sys-surface-container);
       color: var(--mat-sys-on-surface);
+      /* Admins have more links than fit on a narrow screen: let the bar grow a row instead of overlapping. */
+      height: auto;
+      min-height: 64px;
+      flex-wrap: wrap;
+      padding-block: 4px;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
     }
     .spacer {
       flex: 1;

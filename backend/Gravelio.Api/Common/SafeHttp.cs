@@ -22,18 +22,18 @@ public static class SafeHttp
     {
         services.AddOptions<OutboundOptions>().BindConfiguration("Outbound").ValidateDataAnnotations().ValidateOnStart();
         var builder = configure is null ? services.AddHttpClient(name) : services.AddHttpClient(name, configure);
-        return builder
-            .ConfigurePrimaryHttpMessageHandler(sp =>
-            {
-                var allowPrivate = sp.GetRequiredService<IOptions<OutboundOptions>>().Value.AllowPrivateNetworks;
-                return new SocketsHttpHandler
-                {
-                    AllowAutoRedirect = false,
-                    ConnectCallback = (context, ct) => ConnectAsync(context, allowPrivate, ct),
-                };
-            })
-            .AddHttpMessageHandler(sp => new HttpsOnly(sp.GetRequiredService<IOptions<OutboundOptions>>().Value.AllowPrivateNetworks));
+        return builder.ConfigurePrimaryHttpMessageHandler(sp => CreateHandler(sp.GetRequiredService<IOptions<OutboundOptions>>().Value.AllowPrivateNetworks));
     }
+
+    /// The guarded handler itself, for code that cannot use a named client (the OpenID Connect backchannel).
+    public static HttpMessageHandler CreateHandler(bool allowPrivate) => new HttpsOnly(allowPrivate)
+    {
+        InnerHandler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectCallback = (context, ct) => ConnectAsync(context, allowPrivate, ct),
+        },
+    };
 
     static async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext context, bool allowPrivate, CancellationToken ct)
     {

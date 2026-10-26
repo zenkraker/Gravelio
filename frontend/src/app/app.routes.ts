@@ -135,6 +135,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/users').then((m) => m.Users),
       },
       {
+        path: 'sso-providers',
+        title: 'Sign-in providers',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./pages/sso-providers').then((m) => m.SsoProviders),
+      },
+      {
         path: 'server-settings',
         title: 'Server settings',
         canActivate: [adminGuard],

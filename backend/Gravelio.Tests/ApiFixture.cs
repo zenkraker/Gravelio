@@ -79,7 +79,8 @@ public sealed class ApiClient(HttpClient http)
     public async Task SyncXsrfAsync()
     {
         using var response = await http.GetAsync("/api/v1/users/me");
-        var cookie = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("XSRF-TOKEN="));
+        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var cookies), $"No cookie from GET /users/me: {(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}");
+        var cookie = cookies.Single(c => c.StartsWith("XSRF-TOKEN="));
         var token = Uri.UnescapeDataString(cookie["XSRF-TOKEN=".Length..cookie.IndexOf(';')]);
         http.DefaultRequestHeaders.Remove("X-XSRF-TOKEN");
         http.DefaultRequestHeaders.Add("X-XSRF-TOKEN", token);

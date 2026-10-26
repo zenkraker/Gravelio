@@ -1,11 +1,12 @@
 using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Data;
+using Gravelio.Api.Settings;
 using Microsoft.AspNetCore.Identity;
 
 namespace Gravelio.Api.Auth;
 
-public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> users) : Endpoint<LoginRequest, LoginResponse>
+public sealed class LoginEndpoint(AppDb db, SignInManager<User> signIn, UserManager<User> users) : Endpoint<LoginRequest, LoginResponse>
 {
     public override void Configure()
     {
@@ -29,6 +30,15 @@ public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> 
                 if (pending.Succeeded) ThrowError("Your account is waiting for approval by an administrator.", StatusCodes.Status401Unauthorized);
             }
             else users.PasswordHasher.HashPassword(new User { Name = "", UserName = "" }, req.Password);
+            ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
+        }
+        // With password sign-in off, only admins keep it: a broken identity provider must not lock everybody out. Said only after the right
+        // password, like the other account states; a wrong one counts once toward the lockout and is the usual 401.
+        if (!(await ServerSettingsStore.GetAsync(db, ct)).LocalLoginEnabled && !await users.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            var attempt = await signIn.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
+            if (attempt.IsLockedOut) ThrowError("Account locked due to too many failed login attempts. Try again later.", StatusCodes.Status429TooManyRequests);
+            if (attempt.Succeeded) ThrowError("Password sign-in is turned off on this server. Use single sign-on.", StatusCodes.Status403Forbidden);
             ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
         }
         if (user.TwoFactorEnabled)

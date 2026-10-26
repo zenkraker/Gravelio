@@ -332,6 +332,27 @@ public class ServerSettings
     public bool PublicShareableLinks { get; set; }
     /// A public link also shows the owner's name.
     public bool PublicShareableLinksUserInfo { get; set; }
+    /// With exactly one sign-in provider, the login page goes straight to it.
+    public bool SsoAutoRedirect { get; set; }
+    /// When off, only admins can still sign in with a password (so a broken identity provider cannot lock everyone out).
+    public bool LocalLoginEnabled { get; set; } = true;
+}
+
+/// An OpenID Connect provider an admin has set up (a company directory, Authentik, Keycloak, Google...). The secret is stored protected.
+public class IdentityProvider
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    /// Names the provider in URLs and as the login name Identity stores for a linked account; it never changes once links exist.
+    public required string Slug { get; set; }
+    public required string Issuer { get; set; }
+    public required string ClientId { get; set; }
+    /// Protected with Data Protection; null for a public client that relies on PKCE alone.
+    public string? ClientSecret { get; set; }
+    public string Scopes { get; set; } = "openid profile email";
+    public bool Enabled { get; set; } = true;
+    /// A person who signs in for the first time gets an account made for them (only with a verified email that no one else uses).
+    public bool AutoCreateUsers { get; set; }
 }
 
 /// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
@@ -527,6 +548,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<UserPhoto> UserPhotos => Set<UserPhoto>();
+    public DbSet<IdentityProvider> IdentityProviders => Set<IdentityProvider>();
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ActivityLocationAttempt> ActivityLocationAttempts => Set<ActivityLocationAttempt>();
     public DbSet<Goal> Goals => Set<Goal>();
@@ -610,6 +632,13 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Activity>().Property(a => a.City).HasMaxLength(250);
         b.Entity<Activity>().Property(a => a.Town).HasMaxLength(250);
         b.Entity<Activity>().Property(a => a.Country).HasMaxLength(250);
+        b.Entity<IdentityProvider>().HasIndex(p => p.Slug).IsUnique();
+        b.Entity<IdentityProvider>().Property(p => p.Name).HasMaxLength(100);
+        b.Entity<IdentityProvider>().Property(p => p.Slug).HasMaxLength(40);
+        b.Entity<IdentityProvider>().Property(p => p.Issuer).HasMaxLength(500);
+        b.Entity<IdentityProvider>().Property(p => p.ClientId).HasMaxLength(200);
+        b.Entity<IdentityProvider>().Property(p => p.Scopes).HasMaxLength(200);
+        b.Entity<ServerSettings>().Property(s => s.LocalLoginEnabled).HasDefaultValue(true);
         b.Entity<ImportJob>().HasOne<User>().WithMany().HasForeignKey(j => j.UserId).OnDelete(DeleteBehavior.Cascade);
         // One import at a time per person, and a retried request with the same key finds its job instead of making another.
         b.Entity<ImportJob>().HasIndex(j => j.UserId).IsUnique().HasFilter("\"Status\" IN ('queued', 'running')");

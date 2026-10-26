@@ -4,14 +4,15 @@ using Microsoft.EntityFrameworkCore;
 namespace Gravelio.Api.Settings;
 
 public sealed record ServerSettingsRead(bool SignupEnabled, bool SignupRequireEmailVerification, bool SignupRequireAdminApproval,
-    bool PublicShareableLinks, bool PublicShareableLinksUserInfo, bool EmailConfigured)
+    bool PublicShareableLinks, bool PublicShareableLinksUserInfo, bool EmailConfigured, bool SsoAutoRedirect, bool LocalLoginEnabled)
 {
     public static ServerSettingsRead From(ServerSettings settings, bool emailConfigured) =>
         new(settings.SignupEnabled, settings.SignupRequireEmailVerification, settings.SignupRequireAdminApproval,
-            settings.PublicShareableLinks, settings.PublicShareableLinksUserInfo, emailConfigured);
+            settings.PublicShareableLinks, settings.PublicShareableLinksUserInfo, emailConfigured, settings.SsoAutoRedirect, settings.LocalLoginEnabled);
 }
 
-public sealed record PublicSettingsRead(bool SignupEnabled, bool PublicShareableLinks);
+/// What a signed-out visitor needs: whether to offer sign-up, whether links work, and how people may sign in.
+public sealed record PublicSettingsRead(bool SignupEnabled, bool PublicShareableLinks, bool LocalLoginEnabled, bool SsoAutoRedirect, List<Sso.SsoProviderPublic> SsoProviders);
 
 public static class ServerSettingsStore
 {

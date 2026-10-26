@@ -2,6 +2,7 @@ using FastEndpoints;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Settings;
 
@@ -30,6 +31,8 @@ public sealed class UpdateServerSettingsRequest
     public bool SignupRequireAdminApproval { get; init; }
     public bool PublicShareableLinks { get; init; }
     public bool PublicShareableLinksUserInfo { get; init; }
+    public bool SsoAutoRedirect { get; init; }
+    public bool LocalLoginEnabled { get; init; } = true;
 }
 
 public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) : Endpoint<UpdateServerSettingsRequest, ServerSettingsRead>
@@ -42,6 +45,9 @@ public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) :
 
     public override async Task HandleAsync(UpdateServerSettingsRequest req, CancellationToken ct)
     {
+        // Password sign-in can only be turned off while a provider is there to sign in with.
+        if (!req.LocalLoginEnabled && !await Sso.SsoRules.LocalLoginMayBeOffAsync(db, ct))
+            ThrowError(r => r.LocalLoginEnabled, "Set up and enable a sign-in provider before turning off password sign-in.", StatusCodes.Status409Conflict);
         var settings = await ServerSettingsStore.SaveAsync(db, s =>
         {
             s.SignupEnabled = req.SignupEnabled;
@@ -49,6 +55,8 @@ public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) :
             s.SignupRequireAdminApproval = req.SignupRequireAdminApproval;
             s.PublicShareableLinks = req.PublicShareableLinks;
             s.PublicShareableLinksUserInfo = req.PublicShareableLinksUserInfo;
+            s.SsoAutoRedirect = req.SsoAutoRedirect;
+            s.LocalLoginEnabled = req.LocalLoginEnabled;
         }, ct);
         await Send.OkAsync(ServerSettingsRead.From(settings, email.IsConfigured), ct);
     }
@@ -66,6 +74,7 @@ public sealed class GetPublicSettingsEndpoint(AppDb db) : EndpointWithoutRequest
     public override async Task HandleAsync(CancellationToken ct)
     {
         var settings = await ServerSettingsStore.GetAsync(db, ct);
-        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled, settings.PublicShareableLinks), ct);
+        var providers = await db.IdentityProviders.AsNoTracking().Where(p => p.Enabled).OrderBy(p => p.Name).Select(p => new Sso.SsoProviderPublic(p.Slug, p.Name)).ToListAsync(ct);
+        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled, settings.PublicShareableLinks, settings.LocalLoginEnabled, settings.SsoAutoRedirect, providers), ct);
     }
 }

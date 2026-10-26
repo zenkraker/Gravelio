@@ -8,6 +8,7 @@ using Gravelio.Api.Data;
 using Gravelio.Api.Email;
 using Gravelio.Api.Geocoding;
 using Gravelio.Api.Imports;
+using Gravelio.Api.Sso;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
@@ -48,6 +49,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 builder.Services.AddExceptionHandler<ConcurrencyExceptionHandler>();
 builder.Services.AddGravelioRateLimiting();
+builder.Services.AddGravelioSso();
 // Background jobs. Geocoding is opt-in because it sends activity positions to another server.
 builder.Services.AddOptions<GeocodingOptions>().BindConfiguration("Geocoding").ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddGuardedHttpClient(GeocodingJob.HttpClientName);

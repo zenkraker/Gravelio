@@ -911,6 +911,56 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("HealthWeights");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.IdentityProvider", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoCreateUsers")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ClientSecret")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("IdentityProviders");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.ImportJob", b =>
                 {
                     b.Property<int>("Id")
@@ -1066,6 +1116,11 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("LocalLoginEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("PublicShareableLinks")
                         .HasColumnType("boolean");
 
@@ -1079,6 +1134,9 @@ namespace Gravelio.Api.Data.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("SignupRequireEmailVerification")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SsoAutoRedirect")
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");

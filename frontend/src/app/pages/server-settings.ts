@@ -76,6 +76,27 @@ type SettingKey = keyof ServerSettings;
               Show the owner's name on public links
             </mat-checkbox>
           </div>
+          <h2 i18n>Sign-in</h2>
+          <div class="option">
+            <mat-checkbox
+              [checked]="m.local_login_enabled"
+              (change)="set('local_login_enabled', $event.checked)"
+            >
+              Allow password sign-in
+            </mat-checkbox>
+            <span class="hint" i18n>
+              Turn this off to require single sign-on. Administrators can still use a password. It
+              needs an enabled provider.
+            </span>
+          </div>
+          <div class="option">
+            <mat-checkbox
+              [checked]="m.sso_auto_redirect"
+              (change)="set('sso_auto_redirect', $event.checked)"
+            >
+              Go straight to the provider when there is only one
+            </mat-checkbox>
+          </div>
           <button mat-flat-button type="button" (click)="save()" i18n>Save settings</button>
           <button
             mat-button
@@ -132,6 +153,8 @@ export class ServerSettingsPage {
           signup_require_admin_approval: value.signup_require_admin_approval,
           public_shareable_links: value.public_shareable_links,
           public_shareable_links_user_info: value.public_shareable_links_user_info,
+          sso_auto_redirect: value.sso_auto_redirect,
+          local_login_enabled: value.local_login_enabled,
         });
       }
     });

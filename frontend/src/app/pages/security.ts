@@ -12,6 +12,7 @@ import { MfaSetup, MfaStatus, RecoveryCodes, problemMessage } from '../core/api'
 import { AuthService } from '../core/auth';
 import { ApiKeys } from '../components/api-keys';
 import { Sessions } from '../components/sessions';
+import { SsoLinks } from '../components/sso-links';
 import { OUTLINE_FIELDS } from '../core/outline-fields';
 
 @Component({
@@ -20,6 +21,7 @@ import { OUTLINE_FIELDS } from '../core/outline-fields';
   imports: [
     ApiKeys,
     Sessions,
+    SsoLinks,
     RouterLink,
     FormField,
     MatButtonModule,
@@ -135,6 +137,7 @@ import { OUTLINE_FIELDS } from '../core/outline-fields';
       </mat-card-content>
     </mat-card>
 
+    <app-sso-links />
     <app-sessions />
     <app-api-keys />
   `,

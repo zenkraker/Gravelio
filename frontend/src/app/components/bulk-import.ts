@@ -20,7 +20,7 @@ const ACTIVE = ['queued', 'running'];
       class="cdk-visually-hidden"
       type="file"
       accept=".zip"
-      aria-label="Zip of activity files"
+      aria-label="Bulk import zip"
       i18n-aria-label
       tabindex="-1"
       (change)="start(zip)"

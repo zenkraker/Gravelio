@@ -1068,7 +1068,7 @@ test('import a zip of activity files in the background and watch it finish', asy
     { name: 'history/broken.gpx', data: Buffer.from('not xml') },
     { name: 'history/readme.txt', data: Buffer.from('ignored') },
   ]);
-  await page.getByLabel('Zip of activity files').setInputFiles({
+  await page.getByLabel('Bulk import zip').setInputFiles({
     name: 'history.zip',
     mimeType: 'application/zip',
     buffer: zip,
@@ -1088,6 +1088,72 @@ test('import a zip of activity files in the background and watch it finish', asy
   await expectAccessible(page);
   await expect(page.getByRole('link', { name: 'Bulk one' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Bulk two' })).toBeVisible();
+});
+
+test('an admin adds a sign-in provider; the login page offers it and can drop the password form', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const slug = `e2e${Date.now()}`;
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+
+  await page.getByRole('link', { name: 'Sign-in providers' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign-in providers', level: 1 })).toBeVisible();
+  await expectAccessible(page);
+  await page.getByLabel('Name shown on the sign-in button').fill('E2E Login');
+  await page.getByLabel('Address name').fill(slug);
+  await page.getByLabel('Issuer').fill('https://idp.invalid/realm');
+  await page.getByLabel('Client ID').fill('gravelio');
+  await page.getByLabel('Client secret').fill('not-shown-again');
+  await page.getByRole('button', { name: 'Add provider' }).click();
+  await expect(page.getByText('Provider saved')).toBeVisible();
+  const row = page.getByRole('row', { name: /E2E Login/ });
+  await expect(row).toContainText('https://idp.invalid/realm');
+  await expect(row).toContainText('Enabled');
+  // The secret is not shown again; editing offers to keep it.
+  await page.getByRole('button', { name: 'Edit E2E Login' }).click();
+  await expect(page.getByLabel('Client secret')).toHaveValue('');
+  await expect(page.getByText('Leave empty to keep the stored secret.')).toBeVisible();
+  await expectAccessible(page);
+
+  try {
+    // Turn password sign-in off for everyone but admins.
+    await page.getByRole('link', { name: 'Server settings' }).click();
+    await page.getByRole('checkbox', { name: 'Allow password sign-in' }).uncheck();
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await expect(page.getByText('Server settings saved')).toBeVisible();
+    await signOut(page);
+
+    await expect(page.getByRole('link', { name: 'Sign in with E2E Login' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Administrator password sign-in' })).toBeVisible();
+    await expectAccessible(page);
+
+    // The provider cannot be reached (the name does not exist): the person is told, not shown an error page.
+    await page.getByRole('link', { name: 'Sign in with E2E Login' }).click();
+    await expect(page.getByRole('alert')).toContainText('could not be reached');
+    await expectAccessible(page);
+
+    // Administrators keep the password form, so a broken provider cannot lock everyone out.
+    await page.goto('/login?local=1');
+    await page.getByLabel('Username').fill('admin');
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
+  } finally {
+    const saved = await page.request.get('/api/v1/server-settings');
+    const settings = await saved.json();
+    const csrf = { 'X-XSRF-TOKEN': await xsrf(page) };
+    await page.request.put('/api/v1/server-settings', {
+      headers: csrf,
+      data: { ...settings, local_login_enabled: true },
+    });
+    const list = await (await page.request.get('/api/v1/sso-providers?page_size=100')).json();
+    for (const p of list.items.filter((x: { slug: string }) => x.slug === slug))
+      await page.request.delete(`/api/v1/sso-providers/${p.id}`, { headers: csrf });
+  }
+  void headers;
 });
 
 test('make an API key, upload with it, then revoke and delete it', async ({ page, request }) => {
