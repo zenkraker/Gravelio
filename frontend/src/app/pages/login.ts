@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -12,7 +12,14 @@ import { AuthService } from '../core/auth';
 @Component({
   selector: 'app-login',
   providers: [OUTLINE_FIELDS],
-  imports: [FormField, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [
+    RouterLink,
+    FormField,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+  ],
   template: `
     <main>
       <mat-card>
@@ -41,6 +48,7 @@ import { AuthService } from '../core/auth';
               Sign in
             </button>
           </form>
+          <a mat-button routerLink="/forgot-password" i18n>Forgot your password?</a>
         </mat-card-content>
       </mat-card>
     </main>

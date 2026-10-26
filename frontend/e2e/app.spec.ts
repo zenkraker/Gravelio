@@ -74,6 +74,23 @@ test('unauthenticated visitors are sent to the login page', async ({ page }) => 
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test('forgot-password page confirms without revealing accounts', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('link', { name: 'Forgot your password?' }).click();
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByLabel('Email').fill('nobody@example.com');
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByText('If an account with that email exists')).toBeVisible();
+  await expectAccessible(page);
+
+  // A link without a token says so instead of showing a form that cannot work.
+  await page.goto('/reset-password');
+  await expect(page.getByText('This password reset link is invalid or has expired.')).toBeVisible();
+  await expectAccessible(page);
+});
+
 test('upload an activity, view it, and every page is accessible', async ({ page }) => {
   await signIn(page);
   await page

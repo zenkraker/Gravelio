@@ -1,8 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Gravelio.Api.Email;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 
 namespace Gravelio.Tests;
@@ -27,7 +31,16 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:Default", db.GetConnectionString());
         builder.UseSetting("Auth:LoginAttemptsPerMinute", "10000"); // every test shares the in-process "client IP"
         builder.UseSetting("DataProtection:KeysPath", Path.Combine(Path.GetTempPath(), "gravelio-test-keys"));
+        // Emails are captured instead of sent: tests read the reset link out of them.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Email);
+        });
     }
+
+    /// The messages the app would have sent during the current test run.
+    public CapturingEmailSender Email { get; } = new();
 
     /// Logs in as the seeded admin, or as another user.
     public async Task<ApiClient> LoginAsync(string username = "admin", string password = AdminPassword)
@@ -72,3 +85,30 @@ public sealed class ApiClient(HttpClient http)
 
 [CollectionDefinition("api")]
 public sealed class ApiCollection : ICollectionFixture<ApiFixture>;
+
+/// Keeps every email the API would send so tests can read reset links without a mail server.
+public sealed class CapturingEmailSender : IEmailSender
+{
+    readonly List<(string To, string Subject, string Body)> sent = [];
+
+    public bool IsConfigured => true;
+
+    public IReadOnlyList<(string To, string Subject, string Body)> Sent
+    {
+        get
+        {
+            lock (sent) return sent.ToList();
+        }
+    }
+
+    public void Clear()
+    {
+        lock (sent) sent.Clear();
+    }
+
+    public Task SendAsync(string to, string subject, string body, CancellationToken ct)
+    {
+        lock (sent) sent.Add((to, subject, body));
+        return Task.CompletedTask;
+    }
+}

@@ -42,6 +42,14 @@ services:
       Auth__LoginAttemptsPerMinute: ${LOGIN_ATTEMPTS_PER_MINUTE:-10}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # Optional outgoing email (password reset). Leave EMAIL_HOST/EMAIL_FROM unset to disable email.
+      Email__Host: ${EMAIL_HOST:-}
+      Email__Port: ${EMAIL_PORT:-587}
+      Email__Username: ${EMAIL_USERNAME:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-Gravelio}
+      Email__EnableSsl: ${EMAIL_SSL:-true}
     volumes:
       - api-keys:/keys
     depends_on:

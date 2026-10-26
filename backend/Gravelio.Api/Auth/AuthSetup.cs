@@ -81,7 +81,9 @@ public static class AuthSetup
             .AddRoles<IdentityRole<int>>()
             .AddEntityFrameworkStores<AppDb>()
             .AddSignInManager()
-            .AddPasswordValidator<AdminPasswordValidator>();
+            .AddPasswordValidator<AdminPasswordValidator>()
+            // Needed to generate the short-lived Identity token behind a password reset.
+            .AddDefaultTokenProviders();
         services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
         services.AddAuthorization();
 

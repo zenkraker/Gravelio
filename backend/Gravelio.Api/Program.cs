@@ -5,6 +5,7 @@ using FastEndpoints.Swagger;
 using Gravelio.Api.Activities;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
+using Gravelio.Api.Email;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -35,6 +36,9 @@ builder.Services.AddDbContext<AppDb>(o => o.UseNpgsql(builder.Configuration.GetC
 builder.Services.AddDataProtection().SetApplicationName("Gravelio")
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 builder.Services.AddGravelioAuth();
+// Email is optional: an unconfigured server logs instead of failing, so the app runs without SMTP.
+builder.Services.AddOptions<EmailOptions>().BindConfiguration("Email").ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s => s.Title = "Gravelio API");
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes));
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes) + 1024 * 1024);

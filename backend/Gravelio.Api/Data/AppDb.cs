@@ -151,6 +151,17 @@ public class Notification
     public DateTime CreatedAt { get; set; }
 }
 
+/// The hash of a password-reset link's token; the raw token only exists in the email.
+public class PasswordResetToken
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public required string TokenHash { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 /// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
 public class UserPrivacySettings
 {
@@ -334,6 +345,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<HealthPoop> HealthPoops => Set<HealthPoop>();
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -391,6 +403,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Notification>().HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Notification>().HasIndex(n => new { n.UserId, n.CreatedAt });
         b.Entity<Notification>().HasIndex(n => new { n.UserId, n.Read });
+        b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
+        b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
         b.Entity<Follow>().ToTable(t =>
         {
             t.HasCheckConstraint("CK_Follows_NotSelf", "\"FollowerId\" <> \"FolloweeId\"");
