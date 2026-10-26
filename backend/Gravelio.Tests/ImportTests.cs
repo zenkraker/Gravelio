@@ -1,10 +1,12 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using Dynastream.Fit;
 using Gravelio.Api.Activities;
 using Gravelio.Api.Activities.Import;
 using Gravelio.Api.Data;
+using Gravelio.Api.Gears;
 using DateTime = System.DateTime;
 using Activity = Gravelio.Api.Data.Activity;
 
@@ -143,4 +145,106 @@ public class ImportTests
     [Fact]
     public void Garbage_fit_is_rejected() =>
         Assert.Throws<InvalidActivityFileException>(() => ActivityFileParser.Parse(new MemoryStream([1, 2, 3, 4]), ".fit"));
+
+    static string CsvRow(params (int Column, string Value)[] cells)
+    {
+        var row = new string[35];
+        foreach (var (column, value) in cells) row[column] = value;
+        return string.Join(",", row);
+    }
+
+    static MemoryStream Zip(params (string Path, byte[] Content)[] files)
+    {
+        var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (path, content) in files)
+            {
+                using var entry = zip.CreateEntry(path).Open();
+                entry.Write(content);
+            }
+        }
+        ms.Position = 0;
+        return ms;
+    }
+
+    static byte[] Utf8(string text) => Encoding.UTF8.GetBytes(text);
+
+    static byte[] Gzip(string text)
+    {
+        var ms = new MemoryStream();
+        using (var gzip = new GZipStream(ms, CompressionMode.Compress, leaveOpen: true)) gzip.Write(Utf8(text));
+        return ms.ToArray();
+    }
+
+    static string StravaGpx(string name, string sport) =>
+        $"""<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>{name}</name><type>{sport}</type><trkseg>{string.Concat(Track().Select(p => string.Create(CultureInfo.InvariantCulture, $"<trkpt lat=\"{p.Lat}\" lon=\"{p.Lon}\"><ele>{p.Ele}</ele><time>{p.T:yyyy-MM-ddTHH:mm:ssZ}</time></trkpt>")))}</trkseg></trk></gpx>""";
+
+    [Fact]
+    public void Strava_export_uses_csv_totals_and_gpx_track()
+    {
+        var row = CsvRow((0, "1"), (2, "Morning gravel"), (3, "Ciclismo"), (11, "scott"), (12, "activities/1.gpx"),
+            (15, "590"), (16, "580"), (17, "3620"), (18, "15"), (19, "6"), (20, "42"), (21, "10"),
+            (28, "95"), (29, "85"), (30, "170"), (31, "140"), (32, "400"), (33, "200"), (34, "250"));
+        var missing = CsvRow((0, "2"), (12, "activities/missing.gpx"));
+        var csv = CsvRow((0, "Activity ID")) + "\n" + row + "\n" + missing + "\n";
+        using var zip = Zip(("activities.csv", Utf8(csv)), ("activities/1.gpx", Utf8(StravaGpx("GPX name", "gravel_biking"))));
+
+        var export = StravaExport.Read(zip);
+        Assert.Single(export.Errors);
+        var a = ActivityBuilder.Build(Assert.Single(export.Activities).Parsed, 1, "UTC");
+
+        Assert.Equal("Morning gravel", a.Name);
+        Assert.Equal(5, a.ActivityType); // Strava's gravel_biking
+        Assert.Equal(Start, a.StartTime); // the track's first point, not the localised CSV date
+        Assert.Equal(3620, a.Distance); // CSV truth, not the summed GPS points
+        Assert.Equal(590, a.TotalElapsedTime);
+        Assert.Equal(580, a.TotalTimerTime);
+        Assert.Equal(42, a.ElevationGain);
+        Assert.Equal(170, a.MaxHr);
+        Assert.Equal(140, a.AverageHr);
+        Assert.Equal(200, a.AveragePower);
+        Assert.Equal(250, a.Calories);
+    }
+
+    [Fact]
+    public void Strava_export_reads_gzipped_recordings()
+    {
+        var row = CsvRow((0, "1"), (12, "activities/1.gpx.gz"), (15, "590"));
+        var csv = CsvRow((0, "Activity ID")) + "\n" + row + "\n";
+        using var zip = Zip(("activities.csv", Utf8(csv)), ("activities/1.gpx.gz", Gzip(StravaGpx("Gz ride", "mountain_biking"))));
+
+        var export = StravaExport.Read(zip);
+        Assert.Empty(export.Errors);
+        var a = ActivityBuilder.Build(Assert.Single(export.Activities).Parsed, 1, "UTC");
+        Assert.Equal(6, a.ActivityType);
+        Assert.Equal(590, a.TotalElapsedTime);
+        Assert.Contains(a.Streams, s => s.StreamType == StreamTypes.Map);
+    }
+
+    [Theory]
+    [InlineData("gravel_biking", 5)]
+    [InlineData("mountain_biking", 6)]
+    [InlineData("EMountainBikeRide", 36)]
+    public void Strava_sport_names_map_to_activity_types(string sport, int type) =>
+        Assert.Equal(type, ActivityTypes.FromName(sport));
+
+    [Fact]
+    public void Strava_export_reads_bikes_and_shoes_and_links_them_to_activities()
+    {
+        var csv = CsvRow((0, "Activity ID")) + "\n" +
+            CsvRow((0, "1"), (2, "Gear ride"), (11, "scott"), (12, "activities/1.gpx"), (15, "590")) + "\n";
+        var bikes = "Nome della bicicletta,Marca della bicicletta,Modello della bicicletta,Sport predefiniti per la bici\n" +
+            "scott,Scott,Speedster gravel 30 eq,Gravel biking\n";
+        var shoes = "Nome delle scarpe,Marca delle scarpe,Modello delle scarpe,Sport predefiniti per le scarpe\n" +
+            "hoka,Hoka,Clifton 9,Trail running\n";
+        using var zip = Zip(("activities.csv", Utf8(csv)), ("activities/1.gpx", Utf8(StravaGpx("Gear ride", "cycling"))),
+            ("bikes.csv", Utf8(bikes)), ("shoes.csv", Utf8(shoes)));
+
+        var export = StravaExport.Read(zip);
+        Assert.Equal("scott", Assert.Single(export.Activities).Gear);
+        Assert.Equal(2, export.Gear.Count);
+        Assert.Contains(export.Gear, g => g is { Nickname: "scott", Brand: "Scott", Model: "Speedster gravel 30 eq", Type: GearTypes.Bike });
+        Assert.Contains(export.Gear, g => g is { Nickname: "hoka", Brand: "Hoka", Type: GearTypes.Shoes });
+    }
 }

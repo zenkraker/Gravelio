@@ -36,8 +36,8 @@ builder.Services.AddDataProtection().SetApplicationName("Gravelio")
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 builder.Services.AddGravelioAuth();
 builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s => s.Title = "Gravelio API");
-builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = UploadActivityEndpoint.MaxUploadBytes);
-builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = UploadActivityEndpoint.MaxUploadBytes + 1024 * 1024);
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes));
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes) + 1024 * 1024);
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

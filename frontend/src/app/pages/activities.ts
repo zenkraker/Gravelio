@@ -23,6 +23,12 @@ import {
 
 const PAGE_SIZE = 20;
 
+interface StravaImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+}
+
 @Component({
   selector: 'app-activities',
   imports: [
@@ -37,21 +43,37 @@ const PAGE_SIZE = 20;
   template: `
     <header>
       <h1 i18n>Activities</h1>
-      <input
-        #file
-        class="cdk-visually-hidden"
-        type="file"
-        accept=".gpx,.tcx,.fit"
-        aria-label="Activity file"
-        i18n-aria-label
-        tabindex="-1"
-        (change)="upload(file)"
-      />
-      @if (scope() === 'mine') {
-        <button mat-flat-button type="button" [disabled]="uploading()" (click)="file.click()">
-          <mat-icon aria-hidden="true">upload</mat-icon><span i18n>Upload activity</span>
-        </button>
-      }
+      <div class="actions">
+        <input
+          #file
+          class="cdk-visually-hidden"
+          type="file"
+          accept=".gpx,.tcx,.fit"
+          aria-label="Activity file"
+          i18n-aria-label
+          tabindex="-1"
+          (change)="upload(file)"
+        />
+        <input
+          #zip
+          class="cdk-visually-hidden"
+          type="file"
+          accept=".zip"
+          aria-label="Strava export zip"
+          i18n-aria-label
+          tabindex="-1"
+          (change)="importStrava(zip)"
+        />
+        @if (scope() === 'mine') {
+          <button mat-button type="button" [disabled]="uploading()" (click)="zip.click()">
+            <mat-icon aria-hidden="true">downloading</mat-icon
+            ><span i18n>Import Strava export</span>
+          </button>
+          <button mat-flat-button type="button" [disabled]="uploading()" (click)="file.click()">
+            <mat-icon aria-hidden="true">upload</mat-icon><span i18n>Upload activity</span>
+          </button>
+        }
+      </div>
     </header>
     <div class="scope">
       <mat-button-toggle-group
@@ -132,6 +154,11 @@ const PAGE_SIZE = 20;
       align-items: center;
       justify-content: space-between;
     }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .scope {
       margin: 8px 0 16px;
     }
@@ -202,6 +229,33 @@ export class Activities {
       this.snack.open($localize`Activity uploaded`, undefined, { duration: 4000 });
       this.pageIndex.set(1);
       this.page.reload();
+    } catch (err) {
+      this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
+    } finally {
+      input.value = '';
+      this.uploading.set(false);
+    }
+  }
+
+  protected async importStrava(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.item(0);
+    if (!file) return;
+    const body = new FormData();
+    body.append('file', file);
+    this.uploading.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.http.post<StravaImportResult>('/api/v1/activities/import/strava', body),
+      );
+      this.snack.open(
+        $localize`Strava import: ${result.imported} new, ${result.skipped} already present, ${result.failed} failed.`,
+        undefined,
+        { duration: 8000 },
+      );
+      if (result.imported > 0) {
+        this.pageIndex.set(1);
+        this.page.reload();
+      }
     } catch (err) {
       this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
     } finally {

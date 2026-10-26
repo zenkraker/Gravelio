@@ -115,6 +115,9 @@ public static class ActivityTypes
         ["road"] = 4,
         ["gravelride"] = 5,
         ["gravel_cycling"] = 5,
+        // Strava GPX files name the sport type.
+        ["gravel_biking"] = 5,
+        ["mountain_biking"] = 6,
         ["mountainbikeride"] = 6,
         ["mountain"] = 6,
         ["virtualride"] = 7,
