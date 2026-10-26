@@ -39,7 +39,7 @@ public static class ActivityStats
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(row.StartTime, DateTimeKind.Utc),
             Zone(row.Timezone ?? fallbackTimezone)));
 
-    public static DateOnly Today(string timezone) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone(timezone)));
+    public static DateOnly Today(string timezone, TimeProvider time) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(time.GetUtcNow().UtcDateTime, Zone(timezone)));
 
     /// The local date range a period covers; lifetime is unbounded.
     public static (DateOnly Start, DateOnly End) Range(string period, DateOnly anchor, DayOfWeek firstDay, int? year)

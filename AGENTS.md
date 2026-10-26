@@ -101,6 +101,8 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
   - Distance is summed per segment, so gaps between segments never count.
   - Timezone comes from the first GPS point, except for virtual activity types.
   - Uploaded XML is parsed with DTDs prohibited.
+- Anonymous share links live under `/public/...` and are `AllowAnonymous`. Each one first checks the `PublicShareableLinks` server setting, then reads through `ActivityQueries.PubliclyLinkable()` (public visibility, active owner), answers 404 for everything else, and returns its own minimal response record (`GetPublicActivityResponse`), never `ActivityRead`. Streams are read only through `VisibleStreams`, which applies the owner's privacy settings, so no route can serve a stream the owner hid. Reference data the public page needs (activity type names) is anonymous too.
+- Goals and statistics decide which day, week, month or year an activity belongs to from its own local date (`ActivityStats.LocalDate`, `ActivityStats.Range`), never the UTC day; "today" comes from `ActivityStats.Today(zone, TimeProvider)`.
 - Streams are stored as jsonb arrays in the Endurain waypoint shape (`{"time", "<key>": value}`, map points as `{"time","lat","lon"}`). Stream type ids (1 hr … 8 temperature) and activity type ids (`ActivityTypes`, ported from Endurain) are fixed contracts shared with the frontend.
 
 ## Rules from the Endurain audit (apply when porting a module)

@@ -54,6 +54,28 @@ type SettingKey = keyof ServerSettings;
               Require an administrator to approve new accounts
             </mat-checkbox>
           </div>
+          <h2 i18n>Sharing</h2>
+          <p i18n>
+            A public link lets anyone with the address open an activity whose visibility is Public,
+            without signing in.
+          </p>
+          <div class="option">
+            <mat-checkbox
+              [checked]="m.public_shareable_links"
+              (change)="set('public_shareable_links', $event.checked)"
+            >
+              Allow public links
+            </mat-checkbox>
+          </div>
+          <div class="option">
+            <mat-checkbox
+              [checked]="m.public_shareable_links_user_info"
+              [disabled]="!m.public_shareable_links"
+              (change)="set('public_shareable_links_user_info', $event.checked)"
+            >
+              Show the owner's name on public links
+            </mat-checkbox>
+          </div>
           <button mat-flat-button type="button" (click)="save()" i18n>Save settings</button>
         } @else if (!settings.error()) {
           <p i18n>Loading settings…</p>
@@ -99,6 +121,8 @@ export class ServerSettingsPage {
           signup_enabled: value.signup_enabled,
           signup_require_email_verification: value.signup_require_email_verification,
           signup_require_admin_approval: value.signup_require_admin_approval,
+          public_shareable_links: value.public_shareable_links,
+          public_shareable_links_user_info: value.public_shareable_links_user_info,
         });
       }
     });

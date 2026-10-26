@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 namespace Gravelio.Api.Settings;
 
 public sealed record ServerSettingsRead(bool SignupEnabled, bool SignupRequireEmailVerification, bool SignupRequireAdminApproval,
-    bool EmailConfigured)
+    bool PublicShareableLinks, bool PublicShareableLinksUserInfo, bool EmailConfigured)
 {
     public static ServerSettingsRead From(ServerSettings settings, bool emailConfigured) =>
-        new(settings.SignupEnabled, settings.SignupRequireEmailVerification, settings.SignupRequireAdminApproval, emailConfigured);
+        new(settings.SignupEnabled, settings.SignupRequireEmailVerification, settings.SignupRequireAdminApproval,
+            settings.PublicShareableLinks, settings.PublicShareableLinksUserInfo, emailConfigured);
 }
 
-public sealed record PublicSettingsRead(bool SignupEnabled);
+public sealed record PublicSettingsRead(bool SignupEnabled, bool PublicShareableLinks);
 
 public static class ServerSettingsStore
 {

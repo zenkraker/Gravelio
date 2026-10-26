@@ -302,6 +302,52 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("GearComponents");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.Goal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActivityGroup")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Interval")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Metric")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Target")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Interval", "ActivityGroup", "Metric")
+                        .IsUnique();
+
+                    b.ToTable("Goals", t =>
+                        {
+                            t.HasCheckConstraint("CK_Goals_ActivityGroup", "\"ActivityGroup\" IN ('run', 'bike', 'swim', 'walk', 'strength', 'cardio')");
+
+                            t.HasCheckConstraint("CK_Goals_Interval", "\"Interval\" IN ('daily', 'weekly', 'monthly', 'yearly')");
+
+                            t.HasCheckConstraint("CK_Goals_Metric", "\"Metric\" IN ('calories', 'activities', 'distance', 'elevation', 'duration')");
+
+                            t.HasCheckConstraint("CK_Goals_Target", "\"Target\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.HealthFasting", b =>
                 {
                     b.Property<int>("Id")
@@ -750,6 +796,12 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("PublicShareableLinks")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PublicShareableLinksUserInfo")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("SignupEnabled")
                         .HasColumnType("boolean");
 
@@ -1173,6 +1225,15 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gear");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.Goal", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.HealthFasting", b =>

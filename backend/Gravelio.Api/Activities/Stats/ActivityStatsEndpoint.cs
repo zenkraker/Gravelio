@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Activities;
 
-public sealed class ActivityStatsEndpoint(AppDb db) : Endpoint<ActivityStatsRequest, ActivityStatsRead>
+public sealed class ActivityStatsEndpoint(AppDb db, TimeProvider time) : Endpoint<ActivityStatsRequest, ActivityStatsRead>
 {
     public override void Configure() => Get("/activities/stats");
 
@@ -15,7 +15,7 @@ public sealed class ActivityStatsEndpoint(AppDb db) : Endpoint<ActivityStatsRequ
         var me = await db.Users.AsNoTracking().Where(u => u.Id == userId)
             .Select(u => new { u.Timezone, u.FirstDayOfWeek }).FirstAsync(ct);
         var firstDay = Enum.TryParse<DayOfWeek>(me.FirstDayOfWeek, true, out var parsed) ? parsed : DayOfWeek.Monday;
-        var anchor = req.Date ?? ActivityStats.Today(me.Timezone);
+        var anchor = req.Date ?? ActivityStats.Today(me.Timezone, time);
 
         // An unknown type name matches nothing instead of being silently ignored.
         int? typeId = null;

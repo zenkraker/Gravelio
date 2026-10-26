@@ -23,6 +23,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/signup').then((m) => m.Signup),
   },
   {
+    path: 'share/:id',
+    title: 'Shared activity',
+    loadComponent: () => import('./pages/public-activity').then((m) => m.PublicActivityPage),
+  },
+  {
     path: 'verify-email',
     title: 'Confirm your email',
     loadComponent: () => import('./pages/verify-email').then((m) => m.VerifyEmail),
@@ -47,6 +52,11 @@ export const routes: Routes = [
         path: 'stats',
         title: 'Statistics',
         loadComponent: () => import('./pages/stats').then((m) => m.Stats),
+      },
+      {
+        path: 'goals',
+        title: 'Goals',
+        loadComponent: () => import('./pages/goals').then((m) => m.Goals),
       },
       {
         path: 'gear',

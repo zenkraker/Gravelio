@@ -44,6 +44,14 @@ import { Notifications } from './core/notifications';
           i18n
           >Statistics</a
         >
+        <a
+          mat-button
+          routerLink="/goals"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          i18n
+          >Goals</a
+        >
         <button mat-button type="button" [matMenuTriggerFor]="healthMenu" i18n>
           Health<mat-icon aria-hidden="true">expand_more</mat-icon>
         </button>

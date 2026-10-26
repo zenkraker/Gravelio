@@ -28,6 +28,8 @@ public sealed class UpdateServerSettingsRequest
     public bool SignupEnabled { get; init; }
     public bool SignupRequireEmailVerification { get; init; }
     public bool SignupRequireAdminApproval { get; init; }
+    public bool PublicShareableLinks { get; init; }
+    public bool PublicShareableLinksUserInfo { get; init; }
 }
 
 public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) : Endpoint<UpdateServerSettingsRequest, ServerSettingsRead>
@@ -45,12 +47,14 @@ public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) :
             s.SignupEnabled = req.SignupEnabled;
             s.SignupRequireEmailVerification = req.SignupRequireEmailVerification;
             s.SignupRequireAdminApproval = req.SignupRequireAdminApproval;
+            s.PublicShareableLinks = req.PublicShareableLinks;
+            s.PublicShareableLinksUserInfo = req.PublicShareableLinksUserInfo;
         }, ct);
         await Send.OkAsync(ServerSettingsRead.From(settings, email.IsConfigured), ct);
     }
 }
 
-/// The one setting a signed-out visitor needs: whether to offer a sign-up form.
+/// What a signed-out visitor (and the SPA's link button) needs to know: whether to offer a sign-up form and whether public links work.
 public sealed class GetPublicSettingsEndpoint(AppDb db) : EndpointWithoutRequest<PublicSettingsRead>
 {
     public override void Configure()
@@ -62,6 +66,6 @@ public sealed class GetPublicSettingsEndpoint(AppDb db) : EndpointWithoutRequest
     public override async Task HandleAsync(CancellationToken ct)
     {
         var settings = await ServerSettingsStore.GetAsync(db, ct);
-        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled), ct);
+        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled, settings.PublicShareableLinks), ct);
     }
 }

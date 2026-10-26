@@ -162,6 +162,18 @@ public class PasswordResetToken
     public DateTime CreatedAt { get; set; }
 }
 
+/// A target for one kind of activity over one period, e.g. "100 km of bike per month". The unique index allows one target per
+/// combination of period, activity group and metric. Distance is meters, duration seconds, elevation meters, calories kcal.
+public class Goal
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public required string Interval { get; set; }
+    public required string ActivityGroup { get; set; }
+    public required string Metric { get; set; }
+    public int Target { get; set; }
+}
+
 /// An authenticator code that has already signed someone in or confirmed a change. A code stays valid for a couple of minutes,
 /// and RFC 6238 §5.2 forbids accepting it twice; the unique index also rejects two parallel submissions.
 public class UsedTotpCode
@@ -181,6 +193,10 @@ public class ServerSettings
     public bool SignupEnabled { get; set; }
     public bool SignupRequireEmailVerification { get; set; }
     public bool SignupRequireAdminApproval { get; set; }
+    /// Anyone with the link may open a public activity. Off by default: a server only publishes once its admin says so.
+    public bool PublicShareableLinks { get; set; }
+    /// A public link also shows the owner's name.
+    public bool PublicShareableLinksUserInfo { get; set; }
 }
 
 /// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
@@ -367,6 +383,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
@@ -429,6 +446,18 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
         b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
+        b.Entity<Goal>().HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Goal>().HasIndex(g => new { g.UserId, g.Interval, g.ActivityGroup, g.Metric }).IsUnique();
+        b.Entity<Goal>().Property(g => g.Interval).HasMaxLength(20);
+        b.Entity<Goal>().Property(g => g.ActivityGroup).HasMaxLength(20);
+        b.Entity<Goal>().Property(g => g.Metric).HasMaxLength(20);
+        b.Entity<Goal>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Goals_Interval", "\"Interval\" IN ('daily', 'weekly', 'monthly', 'yearly')");
+            t.HasCheckConstraint("CK_Goals_ActivityGroup", "\"ActivityGroup\" IN ('run', 'bike', 'swim', 'walk', 'strength', 'cardio')");
+            t.HasCheckConstraint("CK_Goals_Metric", "\"Metric\" IN ('calories', 'activities', 'distance', 'elevation', 'duration')");
+            t.HasCheckConstraint("CK_Goals_Target", "\"Target\" > 0");
+        });
         b.Entity<UsedTotpCode>().HasOne<User>().WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UsedTotpCode>().HasIndex(c => new { c.UserId, c.Code }).IsUnique();
         b.Entity<UsedTotpCode>().HasIndex(c => c.UsedAt);

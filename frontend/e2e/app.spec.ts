@@ -524,6 +524,126 @@ test('turn on two-factor authentication, sign in with a code, and use a recovery
   await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
 });
 
+test('set, edit and delete a goal', async ({ page }) => {
+  const username = `e2e.goals${Date.now()}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const created = await page.request.post('/api/v1/users', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    data: {
+      name: 'E2E Goals',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+  await signOut(page);
+
+  await signIn(page, username, password);
+  await page.getByRole('link', { name: 'Goals', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Goals', level: 1 })).toBeVisible();
+  await expect(page.getByText('No goals yet.')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByLabel('Target').fill('10');
+  await page.getByRole('button', { name: 'Save goal' }).click();
+  await expect(page.getByText('Goal saved')).toBeVisible();
+  const row = page.getByRole('row', { name: /Weekly · Run · Distance/ });
+  await expect(row).toBeVisible();
+  await expect(row.getByText('0 km / 10 km (0%)')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Edit goal Weekly · Run · Distance' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit goal' })).toBeVisible();
+  await page.getByLabel('Target').fill('25');
+  await page.getByRole('button', { name: 'Save goal' }).click();
+  await expect(page.getByRole('row', { name: /0 km \/ 25 km/ })).toBeVisible();
+
+  // A second goal for the same period, activity and measure is refused.
+  await page.getByLabel('Target').fill('5');
+  await page.getByRole('button', { name: 'Save goal' }).click();
+  await expect(page.getByRole('alert')).toContainText('already have a goal');
+
+  await page.getByRole('button', { name: 'Delete goal Weekly · Run · Distance' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('No goals yet.')).toBeVisible();
+});
+
+test('share a public activity by link; an anonymous visitor sees only what the owner shares', async ({
+  page,
+  browser,
+}) => {
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers,
+    multipart: { file: { name: 'share.gpx', mimeType: 'application/gpx+xml', buffer: gpx() } },
+  });
+  expect(upload.ok()).toBe(true);
+  const [activity] = await upload.json();
+  const title = `E2E shared run ${Date.now()}`;
+  const update = await page.request.fetch(`/api/v1/activities/${activity.id}`, {
+    method: 'PUT',
+    headers,
+    data: {
+      name: title,
+      description: 'Open to all',
+      activity_type: activity.activity_type,
+      visibility: 0,
+    },
+  });
+  expect(update.ok()).toBe(true);
+
+  const setLinks = async (on: boolean): Promise<void> => {
+    await page.getByRole('link', { name: 'Server settings' }).click();
+    const box = page.getByRole('checkbox', { name: 'Allow public links' });
+    await (on ? box.check() : box.uncheck());
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await expect(page.getByText('Server settings saved')).toBeVisible();
+  };
+
+  const visitor = await browser.newContext();
+  await visitor.route('**/tile.openstreetmap.org/**', (route) => route.abort());
+  const anon = await visitor.newPage();
+  try {
+    // Links are off by default: the same address answers as if the activity did not exist.
+    await anon.goto(`/share/${activity.id}`);
+    await expect(anon.getByRole('heading', { name: 'This activity is not shared' })).toBeVisible();
+
+    await setLinks(true);
+    await page.goto(`/activities/${activity.id}`);
+    await expect(page.getByRole('button', { name: 'Copy public link' })).toBeVisible();
+
+    await anon.goto(`/share/${activity.id}`);
+    await expect(anon.getByRole('heading', { name: title, level: 1 })).toBeVisible();
+    await expect(anon.getByText('Open to all')).toBeVisible();
+    await expect(anon.getByText('Shared by')).toHaveCount(0); // the owner's name needs its own switch
+    await expect(anon.getByRole('region', { name: 'Route map' })).toBeVisible();
+    await expectAccessible(anon);
+
+    // Back to private: the link stops working.
+    await page.request.fetch(`/api/v1/activities/${activity.id}`, {
+      method: 'PUT',
+      headers,
+      data: {
+        name: title,
+        description: null,
+        activity_type: activity.activity_type,
+        visibility: 2,
+      },
+    });
+    await anon.goto(`/share/${activity.id}`);
+    await expect(anon.getByRole('heading', { name: 'This activity is not shared' })).toBeVisible();
+  } finally {
+    await setLinks(false);
+    await visitor.close();
+  }
+});
+
 test('sign out ends the session', async ({ page }) => {
   await signIn(page);
   await page.getByRole('button', { name: 'Sign out' }).click();

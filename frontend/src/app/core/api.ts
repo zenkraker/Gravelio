@@ -249,6 +249,8 @@ export interface ServerSettings {
   signup_enabled: boolean;
   signup_require_email_verification: boolean;
   signup_require_admin_approval: boolean;
+  public_shareable_links: boolean;
+  public_shareable_links_user_info: boolean;
 }
 
 export interface ServerSettingsRead extends ServerSettings {
@@ -257,6 +259,33 @@ export interface ServerSettingsRead extends ServerSettings {
 
 export interface PublicSettings {
   signup_enabled: boolean;
+  public_shareable_links: boolean;
+}
+
+/** What a share link shows an anonymous visitor: no account, gear, device or visibility. */
+export interface PublicActivity {
+  id: number;
+  name: string | null;
+  description: string | null;
+  activity_type: number;
+  distance: number;
+  start_time: string | null;
+  timezone: string | null;
+  total_elapsed_time: number;
+  total_timer_time: number;
+  elevation_gain: number | null;
+  elevation_loss: number | null;
+  pace: number | null;
+  average_speed: number | null;
+  max_speed: number | null;
+  average_power: number | null;
+  max_power: number | null;
+  normalized_power: number | null;
+  average_hr: number | null;
+  max_hr: number | null;
+  average_cad: number | null;
+  max_cad: number | null;
+  owner_name: string | null;
 }
 
 export interface SignupResult {
@@ -319,4 +348,24 @@ export interface PrivacySettings {
   hide_activity_speed: boolean;
   hide_activity_pace: boolean;
   hide_activity_gear: boolean;
+}
+
+export interface Goal {
+  id: number;
+  interval: string;
+  activity_group: string;
+  metric: string;
+  target: number;
+}
+
+export interface GoalProgress {
+  goal_id: number;
+  interval: string;
+  activity_group: string;
+  metric: string;
+  target: number;
+  total: number;
+  percent: number;
+  start: string;
+  end: string;
 }

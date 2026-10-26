@@ -20,11 +20,12 @@ public sealed class ActivityStatsRequest
 
 public sealed class ActivityStatsValidator : Validator<ActivityStatsRequest>
 {
-    public ActivityStatsValidator()
+    public ActivityStatsValidator(TimeProvider time)
     {
         RuleFor(x => x.Period).Must(p => p is "week" or "month" or "year" or "lifetime")
             .WithMessage("Period must be week, month, year or lifetime");
         // Widened by a year so a caller just past midnight on 1 January in UTC+N is not rejected.
-        RuleFor(x => x.Year).InclusiveBetween(1900, DateTime.UtcNow.Year + 1).When(x => x.Year is not null);
+        RuleFor(x => x.Year).Must(y => y is >= 1900 && y <= time.GetUtcNow().Year + 1).When(x => x.Year is not null)
+            .WithMessage("Year is out of range");
     }
 }
