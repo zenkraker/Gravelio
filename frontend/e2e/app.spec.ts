@@ -431,6 +431,31 @@ test('a sign-up that needs approval waits for an admin, who is told and approves
   }
 });
 
+test('see the signed-in devices and end another one', async ({ page, browser }) => {
+  await signIn(page);
+  const other = await browser.newContext();
+  const phone = await other.newPage();
+  await signIn(phone);
+
+  await page.goto('/security');
+  await expect(page.getByRole('heading', { name: 'Signed-in devices' })).toBeVisible();
+  const devices = page.getByRole('table', { name: 'Signed-in devices' });
+  await expect(devices.getByText('(this device)')).toBeVisible();
+  await expectAccessible(page);
+
+  // Earlier tests leave sessions of the same admin behind, so end every other one; the phone is among them
+  // and is signed out at its next request.
+  const end = devices.getByRole('button', { name: /^End session/ });
+  while ((await end.count()) > 0) {
+    const before = await end.count();
+    await end.first().click();
+    await expect(end).toHaveCount(before - 1);
+  }
+  await phone.goto('/activities');
+  await expect(phone).toHaveURL(/\/login$/);
+  await other.close();
+});
+
 test('follow a user, accept the request, and see their public activity in the feed', async ({
   page,
 }) => {

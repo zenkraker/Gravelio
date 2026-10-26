@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Gravelio.Api.ApiKeys;
 using Gravelio.Api.Data;
+using Gravelio.Api.Sessions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -93,11 +94,24 @@ public static class AuthSetup
         services.AddAuthorization();
 
         // Revoke cookies on password, role or deactivation changes at the next request, not after the default 30 minutes.
-        services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
-
-        services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
-            .Configure<IOptions<AuthOptions>>((o, auth) =>
+        // The validator rebuilds the principal from the user each time, so carry the session id claim over to the new one.
+        services.Configure<SecurityStampValidatorOptions>(o =>
+        {
+            o.ValidationInterval = TimeSpan.Zero;
+            o.OnRefreshingPrincipal = ctx =>
             {
+                if (ctx.CurrentPrincipal?.FindFirst(SessionTicketStore.SessionIdClaim) is { } sid) ctx.NewPrincipal?.Identities.First().AddClaim(sid);
+                return Task.CompletedTask;
+            };
+        });
+
+        services.AddHttpContextAccessor();
+        services.AddSingleton<SessionTicketStore>();
+        services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
+            .Configure<IOptions<AuthOptions>, SessionTicketStore>((o, auth, sessions) =>
+            {
+                // The cookie holds a key into UserSessions, so a person can see and end each device's session.
+                o.SessionStore = sessions;
                 o.Cookie.Name = AuthCookie;
                 o.Cookie.HttpOnly = true;
                 o.Cookie.SameSite = SameSiteMode.Strict;

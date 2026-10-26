@@ -67,6 +67,9 @@ public static class QueryExtensions
     public static IQueryable<Activity> OwnedBy(this IQueryable<Activity> activities, int userId, int id) =>
         activities.Where(a => a.Id == id && a.UserId == userId);
 
+    public static IQueryable<UserSession> OwnedBy(this IQueryable<UserSession> sessions, int userId, int id) =>
+        sessions.Where(s => s.Id == id && s.UserId == userId);
+
     public static IQueryable<ApiKey> OwnedBy(this IQueryable<ApiKey> keys, int userId, int id) =>
         keys.Where(k => k.Id == id && k.UserId == userId);
 

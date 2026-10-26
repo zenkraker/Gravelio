@@ -196,6 +196,20 @@ public class Goal
 
 /// A key for programs that upload activities for a user without a sign-in (a watch app, a sync script). Only the SHA-256 hash is
 /// stored, so a leaked database cannot be used to upload; the key itself is shown once, when it is made.
+/// A signed-in browser or app. The auth cookie carries only <see cref="Key"/>; the ticket itself stays here, so deleting the row signs that device out.
+public class UserSession
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public required string Key { get; set; }
+    public required byte[] Ticket { get; set; }
+    public required string Device { get; set; }
+    public string? IpAddress { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime LastSeenAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+}
+
 public class ApiKey
 {
     public int Id { get; set; }
@@ -425,6 +439,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
@@ -498,6 +513,13 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<ApiKey>().HasOne(k => k.User).WithMany().HasForeignKey(k => k.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();
         b.Entity<ApiKey>().HasIndex(k => k.UserId);
+        b.Entity<UserSession>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<UserSession>().HasIndex(s => s.Key).IsUnique();
+        b.Entity<UserSession>().HasIndex(s => s.UserId);
+        b.Entity<UserSession>().HasIndex(s => s.ExpiresAt);
+        b.Entity<UserSession>().Property(s => s.Key).HasMaxLength(64);
+        b.Entity<UserSession>().Property(s => s.Device).HasMaxLength(100);
+        b.Entity<UserSession>().Property(s => s.IpAddress).HasMaxLength(45);
         b.Entity<Goal>().HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Goal>().HasIndex(g => new { g.UserId, g.Interval, g.ActivityGroup, g.Metric }).IsUnique();
         b.Entity<Goal>().Property(g => g.Interval).HasMaxLength(20);

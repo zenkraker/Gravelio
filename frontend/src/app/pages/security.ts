@@ -11,6 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MfaSetup, MfaStatus, RecoveryCodes, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 import { ApiKeys } from '../components/api-keys';
+import { Sessions } from '../components/sessions';
 import { OUTLINE_FIELDS } from '../core/outline-fields';
 
 @Component({
@@ -18,6 +19,7 @@ import { OUTLINE_FIELDS } from '../core/outline-fields';
   providers: [OUTLINE_FIELDS],
   imports: [
     ApiKeys,
+    Sessions,
     RouterLink,
     FormField,
     MatButtonModule,
@@ -133,6 +135,7 @@ import { OUTLINE_FIELDS } from '../core/outline-fields';
       </mat-card-content>
     </mat-card>
 
+    <app-sessions />
     <app-api-keys />
   `,
   styles: `

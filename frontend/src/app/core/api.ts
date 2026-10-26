@@ -384,6 +384,15 @@ export interface ActivityPrivateDetails {
   is_hidden: boolean;
 }
 
+export interface Session {
+  id: number;
+  device: string;
+  ip_address: string | null;
+  created_at: string;
+  last_seen_at: string;
+  current: boolean;
+}
+
 export interface ApiKey {
   id: number;
   name: string;
