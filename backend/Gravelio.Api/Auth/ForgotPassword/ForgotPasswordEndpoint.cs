@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
@@ -19,7 +20,7 @@ public sealed class ForgotPasswordEndpoint(AppDb db, UserManager<User> users, IE
     {
         Post("/auth/forgot-password");
         AllowAnonymous();
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(ForgotPasswordRequest req, CancellationToken ct)

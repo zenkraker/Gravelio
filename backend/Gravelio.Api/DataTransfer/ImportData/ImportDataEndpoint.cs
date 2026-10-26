@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using System.IO.Compression;
 using System.Text.Json;
 using FastEndpoints;
@@ -32,7 +33,7 @@ public sealed class ImportDataEndpoint(AppDb db, ILogger<ImportDataEndpoint> log
         Options(o =>
         {
             o.WithMetadata(UploadLimits.For(MaxUploadBytes));
-            o.RequireRateLimiting("sensitive");
+            o.RequireRateLimiting(RateLimiting.Sensitive);
         });
     }
 

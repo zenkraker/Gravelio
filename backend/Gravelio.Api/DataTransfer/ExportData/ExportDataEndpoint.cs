@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using System.IO.Compression;
 using FastEndpoints;
 using Gravelio.Api.Auth;
@@ -14,7 +15,7 @@ public sealed class ExportDataEndpoint(AppDb db, UserManager<User> users, TimePr
     public override void Configure()
     {
         Get("/users/me/export");
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

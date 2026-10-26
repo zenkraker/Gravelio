@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.Identity;
@@ -9,7 +10,7 @@ public sealed class DisableMfaEndpoint(UserManager<User> users, SignInManager<Us
     public override void Configure()
     {
         Post("/users/me/mfa/disable");
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(DisableMfaRequest req, CancellationToken ct)

@@ -40,6 +40,10 @@ services:
       Auth__SecureCookies: ${SECURE_COOKIES:-true}
       # Per-IP login limit. Keep the default in production; the e2e job raises it for its many sign-ins.
       Auth__LoginAttemptsPerMinute: ${LOGIN_ATTEMPTS_PER_MINUTE:-10}
+      # Requests per minute per user (per IP when signed out). Keep the defaults in production; the e2e job raises them.
+      RateLimits__ReadsPerMinute: ${RATE_LIMIT_READS_PER_MINUTE:-120}
+      RateLimits__WritesPerMinute: ${RATE_LIMIT_WRITES_PER_MINUTE:-30}
+      RateLimits__UploadsPerMinute: ${RATE_LIMIT_UPLOADS_PER_MINUTE:-20}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # Optional outgoing email (password reset). Leave EMAIL_HOST/EMAIL_FROM unset to disable email.

@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
@@ -12,7 +13,7 @@ public sealed class CreateApiKeyEndpoint(AppDb db, UserManager<User> users, Time
     public override void Configure()
     {
         Post("/users/me/api-keys");
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(CreateApiKeyRequest req, CancellationToken ct)

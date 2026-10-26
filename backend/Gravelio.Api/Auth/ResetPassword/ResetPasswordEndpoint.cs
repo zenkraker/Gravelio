@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Data;
@@ -30,7 +31,7 @@ public sealed class ResetPasswordEndpoint(AppDb db, UserManager<User> users, Tim
     {
         Post("/auth/reset-password");
         AllowAnonymous();
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(ResetPasswordRequest req, CancellationToken ct)

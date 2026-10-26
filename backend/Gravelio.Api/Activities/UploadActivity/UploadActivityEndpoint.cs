@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using System.Text.Json;
 using FastEndpoints;
 using FluentValidation;
@@ -23,7 +24,7 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         AllowFileUploads();
         // Signed in with the browser session, or with an API key from a sync tool.
         AuthSchemes(IdentityConstants.ApplicationScheme, ApiKeyAuth.Scheme);
-        Options(o => o.WithMetadata([.. UploadLimits.For(MaxUploadBytes), new AllowsApiKey()]));
+        Options(o => o.WithMetadata([.. UploadLimits.For(MaxUploadBytes), new AllowsApiKey()]).RequireRateLimiting(RateLimiting.Upload));
     }
 
     public override async Task HandleAsync(UploadActivityRequest req, CancellationToken ct)

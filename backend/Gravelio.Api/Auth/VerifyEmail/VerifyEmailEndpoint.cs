@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Data;
@@ -28,7 +29,7 @@ public sealed class VerifyEmailEndpoint(UserManager<User> users) : Endpoint<Veri
     {
         Post("/auth/verify-email");
         AllowAnonymous();
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(VerifyEmailRequest req, CancellationToken ct)

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Threading.RateLimiting;
 using FastEndpoints;
 using FastEndpoints.Swagger;
 using Gravelio.Api.Activities;
@@ -45,17 +44,7 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s 
 // Every error body, including unhandled exceptions and bare 401/404/429 responses, is ASP.NET Core's own problem details.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
-builder.Services.AddRateLimiter(o =>
-{
-    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.AddPolicy("sensitive", http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = http.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value.LoginAttemptsPerMinute,
-            Window = TimeSpan.FromMinutes(1),
-        }));
-});
+builder.Services.AddGravelioRateLimiting();
 
 // Telemetry is always collected; it only leaves the process when an OTLP endpoint is configured.
 builder.Logging.AddOpenTelemetry(o => o.IncludeFormattedMessage = true);
@@ -83,8 +72,9 @@ app.Use(async (ctx, next) =>
     if (ctx.Request.Path.StartsWithSegments("/api")) ctx.Response.Headers.CacheControl = "no-store";
     await next();
 });
-app.UseRateLimiter();
 app.UseAuthentication();
+// After authentication, so the global limit can count per user.
+app.UseRateLimiter();
 // Before authorization, which short-circuits 401s: those responses must still hand out an XSRF token.
 app.UseXsrfProtection();
 app.UseAuthorization();

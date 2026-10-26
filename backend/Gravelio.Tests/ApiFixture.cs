@@ -30,6 +30,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseSetting("ConnectionStrings:Default", db.GetConnectionString());
         builder.UseSetting("Auth:LoginAttemptsPerMinute", "10000"); // every test shares the in-process "client IP"
+        foreach (var limit in new[] { "ReadsPerMinute", "WritesPerMinute", "UploadsPerMinute" }) builder.UseSetting($"RateLimits:{limit}", "100000");
         builder.UseSetting("DataProtection:KeysPath", Path.Combine(Path.GetTempPath(), "gravelio-test-keys"));
         // Emails are captured instead of sent: tests read the reset link out of them.
         builder.ConfigureTestServices(services =>

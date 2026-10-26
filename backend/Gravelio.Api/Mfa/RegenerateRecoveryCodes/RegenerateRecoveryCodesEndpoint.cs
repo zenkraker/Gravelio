@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Data;
 using Microsoft.AspNetCore.Identity;
@@ -10,7 +11,7 @@ public sealed class RegenerateRecoveryCodesEndpoint(UserManager<User> users, App
     public override void Configure()
     {
         Post("/users/me/mfa/recovery-codes");
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(RegenerateRecoveryCodesRequest req, CancellationToken ct)

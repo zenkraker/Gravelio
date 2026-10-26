@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Auth;
@@ -41,7 +42,7 @@ public sealed class SignupEndpoint(AppDb db, UserManager<User> users, IEmailSend
     {
         Post("/auth/signup");
         AllowAnonymous();
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(SignupRequest req, CancellationToken ct)

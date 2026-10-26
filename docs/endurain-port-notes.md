@@ -33,7 +33,7 @@ Status: live masking DONE; per-activity override MISSING; laps/sets/steps gates 
 **R-02 Rate limits exist in tiers; Gravelio only limits login.**
 Where: `core/rate_limit.py`: DEFAULT 120/min on every route, WRITE 30, SENSITIVE 10 (login, MFA, reset, signup, OAuth), UPLOAD 20, PROVIDER_SYNC 6. Key = hashed session token, else client IP.
 Decision: `Microsoft.AspNetCore.RateLimiting` with a global partitioned limiter (user id when signed in, else client IP from forwarded headers) plus named policies `sensitive`, `write`, `upload`, `provider`. Test one 429 per policy.
-Status: PARTIAL (only `sensitive` on login).
+Status: DONE (`Common/RateLimiting.cs`; `RateLimitTests`). The `provider` tier waits for Strava/Garmin sync.
 
 **R-03 Step-up re-authentication with its own lockout.**
 Where: `docs/integrate/account-security.md`: password change, MFA enable/disable, backup-code regeneration, API-key creation, IdP link/unlink all require `current_password` and, when MFA is on, `mfa_code`. Separate progressive lockout: 5 failures → 5 min, 10 → 30 min, 15 → 2 h, checked **before** comparing credentials.
@@ -174,7 +174,7 @@ Gravelio routes below are under `/api/v1`. "E:" is the Endurain route or module;
 | F-A12 | Password reset by email (`/password-reset/request`, `/confirm`)                                                            | `POST /auth/forgot-password`, `/auth/reset-password`                                           | DONE    |     |                                                                                                                                                                                      |
 | F-A13 | Configurable password policy (server settings `password_type`, lengths)                                                    | fixed 8 / 12 (admins)                                                                          | PARTIAL | P3  | Options pattern would need a DB-backed `IOptionsMonitor`; low value.                                                                                                                 |
 | F-A14 | Local login can be disabled when SSO is on (`local_login_enabled`)                                                         | none                                                                                           | MISSING | P3  | Needs F-A09.                                                                                                                                                                         |
-| F-A15 | Rate-limit tiers                                                                                                           | login only                                                                                     | PARTIAL | P1  | R-02.                                                                                                                                                                                |
+| F-A15 | Rate-limit tiers                                                                                                           | global read/write limits per user or IP, `sensitive`, `upload`                                 | DONE    | P1  | R-02.                                                                                                                                                                                |
 
 ### B2. Users and profile
 

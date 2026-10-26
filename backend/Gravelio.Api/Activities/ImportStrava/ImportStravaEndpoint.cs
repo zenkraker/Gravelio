@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Activities.Import;
 using Gravelio.Api.Auth;
@@ -17,7 +18,7 @@ public sealed class ImportStravaEndpoint(AppDb db, UserManager<User> users, Time
     {
         Post("/activities/import/strava");
         AllowFileUploads();
-        Options(o => o.WithMetadata(UploadLimits.For(MaxUploadBytes)));
+        Options(o => o.WithMetadata(UploadLimits.For(MaxUploadBytes)).RequireRateLimiting(RateLimiting.Upload));
     }
 
     public override async Task HandleAsync(ImportStravaRequest req, CancellationToken ct)

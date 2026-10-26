@@ -1,3 +1,4 @@
+using Gravelio.Api.Common;
 using FastEndpoints;
 using Gravelio.Api.Data;
 using Gravelio.Api.Mfa;
@@ -14,7 +15,7 @@ public sealed class VerifyMfaEndpoint(SignInManager<User> signIn, UserManager<Us
     {
         Post("/auth/mfa/verify");
         AllowAnonymous();
-        Options(o => o.RequireRateLimiting("sensitive"));
+        Options(o => o.RequireRateLimiting(RateLimiting.Sensitive));
     }
 
     public override async Task HandleAsync(VerifyMfaRequest req, CancellationToken ct)
