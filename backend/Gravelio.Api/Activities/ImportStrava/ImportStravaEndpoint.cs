@@ -86,6 +86,7 @@ public sealed class ImportStravaEndpoint(AppDb db, UserManager<User> users, Time
             {
                 a.CreatedAt = now;
                 a.Visibility = defaultVisibility;
+                a.DedupKey = ActivityDuplicates.Key("strava", a.StartTime); // one imported activity per start, even if two imports run at once
                 if (a.GearId is null && defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
             }
             if (fresh.Count > 0)

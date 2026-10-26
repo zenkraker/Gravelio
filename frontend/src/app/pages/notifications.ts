@@ -36,7 +36,7 @@ const PAGE_SIZE = 20;
       <ng-container matColumnDef="message">
         <th mat-header-cell *matHeaderCellDef i18n>Notification</th>
         <td mat-cell *matCellDef="let n">
-          <a [routerLink]="['/people', n.actor_id]">{{ message(n) }}</a>
+          <a [routerLink]="link(n)">{{ message(n) }}</a>
           @if (!n.read) {
             <span class="cdk-visually-hidden" i18n>(unread)</span>
           }
@@ -124,6 +124,8 @@ export class NotificationsPage {
 
   protected message(n: Notification): string {
     switch (n.type) {
+      case 2:
+        return $localize`“${n.activity_name}” looks like a duplicate and was hidden.`;
       case 11:
         return $localize`${n.actor_name} wants to follow you.`;
       case 12:
@@ -131,6 +133,11 @@ export class NotificationsPage {
       default:
         return $localize`${n.actor_name} sent you a notification.`;
     }
+  }
+
+  /** What a notification opens: the activity it is about, otherwise the person behind it. */
+  protected link(n: Notification): (string | number)[] {
+    return n.activity_id ? ['/activities', n.activity_id] : ['/people', n.actor_id];
   }
 
   protected readLabel(n: Notification): string {

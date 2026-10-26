@@ -75,6 +75,16 @@ const HIDE_OPTIONS = [
           <input matInput type="number" [formField]="f.rpe" />
         </mat-form-field>
 
+        <mat-checkbox
+          class="wide"
+          [checked]="isHidden()"
+          (change)="isHidden.set($event.checked)"
+          i18n
+        >
+          Hide this activity from everyone. It is also left out of statistics, goals and gear
+          totals.
+        </mat-checkbox>
+
         <fieldset class="wide">
           <legend i18n>Hide from other people</legend>
           <mat-checkbox [checked]="useDefaults()" (change)="useDefaults.set($event.checked)" i18n>
@@ -161,6 +171,7 @@ export class ActivityEdit {
   });
   // No list stored means the activity follows the owner's privacy settings.
   protected readonly useDefaults = linkedSignal(() => this.details.value()?.hidden_details == null);
+  protected readonly isHidden = linkedSignal(() => this.details.value()?.is_hidden ?? false);
   protected readonly hidden = linkedSignal<string[]>(
     () => this.details.value()?.hidden_details ?? [],
   );
@@ -191,6 +202,7 @@ export class ActivityEdit {
             workout_feeling: m.feeling === '' ? null : Number(m.feeling),
             workout_rpe: m.rpe === '' ? null : Number(m.rpe),
             hidden_details: this.useDefaults() ? null : this.hidden(),
+            is_hidden: this.isHidden(),
           }),
         );
         this.details.reload();

@@ -14,6 +14,19 @@ public static class NotificationWriter
             CreatedAt = now,
         });
 
+    /// A recording that looks like one the user already has was stored hidden; this tells them, with a way to open it.
+    public static void AddDuplicate(AppDb db, int userId, string userName, int activityId, string? activityName, DateTime now) =>
+        db.Notifications.Add(new Notification
+        {
+            UserId = userId,
+            Type = NotificationTypes.DuplicateActivity,
+            ActorId = userId,
+            ActorName = userName,
+            ActivityId = activityId,
+            ActivityName = activityName,
+            CreatedAt = now,
+        });
+
     /// Best-effort: a notification must never undo the action that triggered it.
     public static async Task TrySaveAsync(AppDb db, ILogger log, CancellationToken ct)
     {

@@ -14,12 +14,12 @@ public sealed class GetActivityPrivateDetailsEndpoint(AppDb db) : Endpoint<IdReq
     public override async Task HandleAsync(IdRequest req, CancellationToken ct)
     {
         var activity = await db.Activities.AsNoTracking().OwnedBy(User.UserId(), req.Id)
-            .Select(a => new { a.PrivateNotes, a.WorkoutFeeling, a.WorkoutRpe, a.HiddenDetails }).FirstOrDefaultAsync(ct);
+            .Select(a => new { a.PrivateNotes, a.WorkoutFeeling, a.WorkoutRpe, a.HiddenDetails, a.IsHidden }).FirstOrDefaultAsync(ct);
         if (activity is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
-        await Send.OkAsync(new GetActivityPrivateDetailsResponse(activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, HiddenDetailNames.ToNames(activity.HiddenDetails)), ct);
+        await Send.OkAsync(new GetActivityPrivateDetailsResponse(activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, HiddenDetailNames.ToNames(activity.HiddenDetails), activity.IsHidden), ct);
     }
 }

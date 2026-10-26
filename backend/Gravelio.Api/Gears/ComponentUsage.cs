@@ -12,7 +12,7 @@ static class ComponentUsage
     public static async Task<Dictionary<int, double>> UsedAsync(AppDb db, int userId, int gearId, IReadOnlyCollection<GearComponent> components, CancellationToken ct)
     {
         if (components.Count == 0) return [];
-        var rides = await db.Activities.AsNoTracking().Where(a => a.GearId == gearId && a.UserId == userId)
+        var rides = await db.Activities.AsNoTracking().Where(a => a.GearId == gearId && a.UserId == userId && !a.IsHidden)
             .Select(a => new { a.StartTime, a.Distance }).ToListAsync(ct);
         return components.ToDictionary(c => c.Id, c =>
         {

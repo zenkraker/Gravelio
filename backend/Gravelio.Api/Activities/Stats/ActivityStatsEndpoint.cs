@@ -23,7 +23,7 @@ public sealed class ActivityStatsEndpoint(AppDb db, TimeProvider time) : Endpoin
             typeId = ActivityTypes.Names.Where(n => n.Value.Equals(req.Type.Trim(), StringComparison.OrdinalIgnoreCase))
                 .Select(n => (int?)n.Key).FirstOrDefault() ?? -1;
 
-        var query = db.Activities.AsNoTracking().Where(a => a.UserId == userId);
+        var query = db.Activities.AsNoTracking().Where(a => a.UserId == userId && !a.IsHidden);
         if (req.Period != "lifetime")
         {
             var (start, end) = ActivityStats.Range(req.Period, anchor, firstDay, req.Year);

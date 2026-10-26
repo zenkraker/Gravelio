@@ -158,6 +158,9 @@ interface StravaImportResult {
             <mat-card-header>
               <h2 mat-card-title>
                 <a [routerLink]="['/activities', a.id]">{{ a.name }}</a>
+                @if (a.is_hidden) {
+                  <span class="hidden-badge" i18n>Hidden</span>
+                }
               </h2>
               <p mat-card-subtitle>
                 @if (scope() === 'following') {
@@ -254,6 +257,14 @@ interface StravaImportResult {
     }
     .error {
       color: var(--mat-sys-error);
+    }
+    .hidden-badge {
+      margin-inline-start: 8px;
+      padding: 2px 8px;
+      border-radius: var(--mat-sys-corner-full);
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant);
+      font: var(--mat-sys-label-small);
     }
   `,
 })

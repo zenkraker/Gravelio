@@ -5,8 +5,8 @@ import { Page, expect, test } from '@playwright/test';
 const PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'Admin-Password-1!';
 
 /** A short run in Lisbon, unique per run so repeated runs don't hit the duplicate check. */
-function gpx(name = 'E2E run', sport = 'running', daysAgo = 1): Buffer {
-  const start = Date.now() - daysAgo * 86_400_000;
+function gpx(name = 'E2E run', sport = 'running', daysAgo = 1, startMs?: number): Buffer {
+  const start = startMs ?? Date.now() - daysAgo * 86_400_000;
   const points = Array.from({ length: 60 }, (_, i) => {
     const time = new Date(start + i * 10_000).toISOString().replace(/\.\d+Z$/, 'Z');
     return (
@@ -803,6 +803,59 @@ test('make an API key, upload with it, then revoke and delete it', async ({ page
   await page.getByRole('button', { name: 'Delete key Watch sync' }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByText('No API keys yet.')).toBeVisible();
+});
+
+test('a second recording of the same workout is kept hidden and reported', async ({ page }) => {
+  const username = `e2e.dup${Date.now()}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const created = await page.request.post('/api/v1/users', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    data: {
+      name: 'E2E Dup',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+  await signOut(page);
+
+  await signIn(page, username, password);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  const start = Date.now() - 7 * 86_400_000;
+  for (const name of ['E2E watch recording', 'E2E phone recording']) {
+    const upload = await page.request.post('/api/v1/activities/upload', {
+      headers,
+      multipart: {
+        file: {
+          name: 'w.gpx',
+          mimeType: 'application/gpx+xml',
+          buffer: gpx(name, 'running', 7, start),
+        },
+      },
+    });
+    expect(upload.ok()).toBe(true);
+  }
+
+  await page.goto('/notifications');
+  await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();
+  const note = page.getByRole('link', { name: /E2E phone recording.*duplicate/ });
+  await expect(note).toBeVisible();
+  await expectAccessible(page);
+  await note.click();
+  await expect(page.getByRole('heading', { name: 'E2E phone recording', level: 1 })).toBeVisible();
+  await expect(page.getByText('This activity is hidden.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await page.getByRole('checkbox', { name: /Hide this activity from everyone/ }).uncheck();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Activity saved')).toBeVisible();
+  await expect(page.getByText('This activity is hidden.')).toHaveCount(0);
+  await expectAccessible(page);
 });
 
 test('sign out ends the session', async ({ page }) => {

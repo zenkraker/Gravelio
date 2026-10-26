@@ -27,7 +27,7 @@ public sealed class GetGoalProgressEndpoint(AppDb db, TimeProvider time) : Endpo
         var windows = goals.Select(g => GoalProgress.Window(g.Interval, anchor, firstDay)).ToList();
         var from = DateTime.SpecifyKind(windows.Min(w => w.Start).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddDays(-2);
         var to = DateTime.SpecifyKind(windows.Max(w => w.End).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddDays(2);
-        var rows = await db.Activities.AsNoTracking().Where(a => a.UserId == userId && a.StartTime >= from && a.StartTime < to)
+        var rows = await db.Activities.AsNoTracking().Where(a => a.UserId == userId && !a.IsHidden && a.StartTime >= from && a.StartTime < to)
             .Select(a => new ActivityStats.Row(a.StartTime, a.Timezone, a.ActivityType, a.Distance, a.TotalTimerTime, a.ElevationGain, a.Calories))
             .ToListAsync(ct);
         await Send.OkAsync(goals.Select(g => GoalProgress.Compute(g, rows, anchor, firstDay, me.Timezone)).ToList(), ct);

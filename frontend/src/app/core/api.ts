@@ -59,6 +59,8 @@ export interface Activity {
   max_cad: number | null;
   calories: number | null;
   visibility: number;
+  /** Set by the owner or by a duplicate upload; only the owner ever sees such an activity. */
+  is_hidden: boolean;
   tracker_manufacturer: string | null;
   tracker_model: string | null;
   gear_id: number | null;
@@ -300,6 +302,8 @@ export interface Notification {
   actor_name: string;
   read: boolean;
   created_at: string;
+  activity_id: number | null;
+  activity_name: string | null;
 }
 
 export interface UnreadCount {
@@ -376,6 +380,7 @@ export interface ActivityPrivateDetails {
   workout_feeling: number | null;
   workout_rpe: number | null;
   hidden_details: string[] | null;
+  is_hidden: boolean;
 }
 
 export interface ApiKey {

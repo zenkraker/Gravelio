@@ -19,9 +19,9 @@ public sealed class UpdateActivityPrivateDetailsEndpoint(AppDb db) : Endpoint<Up
             await Send.NotFoundAsync(ct);
             return;
         }
-        (activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, activity.HiddenDetails) =
-            (string.IsNullOrWhiteSpace(req.PrivateNotes) ? null : req.PrivateNotes, req.WorkoutFeeling, req.WorkoutRpe, HiddenDetailNames.FromNames(req.HiddenDetails));
+        (activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, activity.HiddenDetails, activity.IsHidden) =
+            (string.IsNullOrWhiteSpace(req.PrivateNotes) ? null : req.PrivateNotes, req.WorkoutFeeling, req.WorkoutRpe, HiddenDetailNames.FromNames(req.HiddenDetails), req.IsHidden);
         await db.SaveChangesAsync(ct);
-        await Send.OkAsync(new UpdateActivityPrivateDetailsResponse(activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, HiddenDetailNames.ToNames(activity.HiddenDetails)), ct);
+        await Send.OkAsync(new UpdateActivityPrivateDetailsResponse(activity.PrivateNotes, activity.WorkoutFeeling, activity.WorkoutRpe, HiddenDetailNames.ToNames(activity.HiddenDetails), activity.IsHidden), ct);
     }
 }

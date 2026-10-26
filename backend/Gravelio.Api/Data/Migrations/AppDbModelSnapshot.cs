@@ -51,6 +51,9 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DedupKey")
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -71,6 +74,9 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.Property<int?>("HiddenDetails")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
 
                     b.Property<int?>("MaxCad")
                         .HasColumnType("integer");
@@ -130,8 +136,11 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.HasIndex("GearId");
 
-                    b.HasIndex("UserId", "StartTime")
-                        .IsUnique();
+                    b.HasIndex("UserId", "DedupKey")
+                        .IsUnique()
+                        .HasFilter("\"DedupKey\" IS NOT NULL");
+
+                    b.HasIndex("UserId", "StartTime");
 
                     b.ToTable("Activities", t =>
                         {
@@ -793,6 +802,12 @@ namespace Gravelio.Api.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ActivityName")
+                        .HasColumnType("text");
 
                     b.Property<int>("ActorId")
                         .HasColumnType("integer");

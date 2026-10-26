@@ -5,6 +5,7 @@ using Gravelio.Api.Activities.Import;
 using Gravelio.Api.ApiKeys;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
+using Gravelio.Api.Notifications;
 using Gravelio.Api.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -31,9 +32,11 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var user = (await users.GetUserAsync(User))!;
         var ext = Path.GetExtension(req.File.FileName).ToLowerInvariant();
         List<Activity> built = []; // ThrowError never returns, but the compiler can't see that
+        var fileHash = "";
         try
         {
             await using var stream = req.File.OpenReadStream();
+            fileHash = await ActivityDuplicates.HashAsync(stream, ct);
             built = ActivityFileParser.Parse(stream, ext).Where(p => p.Points.Count > 0 || p.Summary is not null)
                 .Select(p => ActivityBuilder.Build(p, userId, user.Timezone)).ToList();
         }
@@ -47,11 +50,16 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
             ThrowError("Failed to parse activity file", StatusCodes.Status422UnprocessableEntity);
         }
 
-        // Re-uploading the same recording is rejected rather than creating a duplicate.
-        var starts = built.Select(a => a.StartTime).ToList();
-        var existing = await db.Activities.Where(a => a.UserId == userId && starts.Contains(a.StartTime)).Select(a => a.StartTime).ToListAsync(ct);
-        var fresh = built.Where(a => !existing.Contains(a.StartTime)).ToList();
+        // Uploading the same file again is refused: nothing new would be stored.
+        foreach (var a in built) a.DedupKey = ActivityDuplicates.Key(fileHash, a.StartTime);
+        var keys = built.Select(a => a.DedupKey!).ToList();
+        var uploaded = await db.Activities.Where(a => a.UserId == userId && keys.Contains(a.DedupKey!)).Select(a => a.DedupKey!).ToListAsync(ct);
+        var fresh = built.Where(a => !uploaded.Contains(a.DedupKey!)).ToList();
         if (fresh.Count == 0) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
+        // A different file that starts at the same moment is most likely the same workout from a second device or app. It is stored, so
+        // nothing is lost, but hidden, and the owner is told; they can unhide it if it is not a duplicate.
+        var starts = fresh.Select(a => a.StartTime).ToList();
+        var sameStart = await db.Activities.Where(a => a.UserId == userId && starts.Contains(a.StartTime)).Select(a => a.StartTime).ToListAsync(ct);
         var now = time.GetUtcNow().UtcDateTime;
         // New activities start with the owner's default visibility; no privacy row means the safe private default.
         var defaultVisibility = (await db.UserPrivacySettings.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct))
@@ -62,11 +70,15 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         {
             a.CreatedAt = now;
             a.Visibility = defaultVisibility;
+            a.IsHidden = sameStart.Contains(a.StartTime);
             if (defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
         }
         db.Activities.AddRange(fresh);
         // A parallel upload of the same recording can win the race the check above can't prevent.
         if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
+        var duplicates = fresh.Where(a => a.IsHidden).ToList();
+        foreach (var a in duplicates) NotificationWriter.AddDuplicate(db, userId, user.Name, a.Id, a.Name, now);
+        if (duplicates.Count > 0) await NotificationWriter.TrySaveAsync(db, log, ct);
         var owner = PersonRead.From(user);
         await Send.OkAsync(fresh.Select(a => ActivityRead.From(a, owner)).ToList(), ct);
     }

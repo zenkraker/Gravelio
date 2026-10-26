@@ -22,7 +22,7 @@ public sealed class FollowingFeedEndpoint(AppDb db) : Endpoint<FollowingFeedRequ
         var me = User.UserId();
         var followeeIds = db.Follows.AcceptedFolloweeIds(me).Where(id => db.Users.Any(u => u.Id == id && u.Active));
         var page = await db.Activities.AsNoTracking()
-            .Where(a => followeeIds.Contains(a.UserId)
+            .Where(a => followeeIds.Contains(a.UserId) && !a.IsHidden
                 && (a.Visibility == Visibilities.Public || a.Visibility == Visibilities.Followers))
             .OrderByDescending(a => a.StartTime).ThenByDescending(a => a.Id)
             .ToPageAsync(req, page => page.Select(ActivityRead.Projection), ct);

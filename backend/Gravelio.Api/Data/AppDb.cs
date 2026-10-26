@@ -61,6 +61,11 @@ public class Activity
     public int? WorkoutRpe { get; set; }
     /// What the owner hides on this activity, replacing their privacy settings; null means use the settings.
     public Privacy.HiddenDetails? HiddenDetails { get; set; }
+    /// Shown to the owner only, and left out of statistics, goals, gear totals, feeds and public links. Set on an upload that looks like a
+    /// duplicate of another recording, and by the owner.
+    public bool IsHidden { get; set; }
+    /// Identifies a recording by its file and start, so uploading the same file again is recognised. Null on activities that predate it.
+    public string? DedupKey { get; set; }
     public List<ActivityStream> Streams { get; set; } = [];
 }
 
@@ -155,6 +160,9 @@ public class Notification
     public int Type { get; set; }
     public int ActorId { get; set; }
     public required string ActorName { get; set; }
+    /// The activity a notification is about, when it is about one. Not a foreign key: the notification outlives the activity.
+    public int? ActivityId { get; set; }
+    public string? ActivityName { get; set; }
     public bool Read { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -423,8 +431,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         base.OnModelCreating(b);
         b.HasDbFunction(typeof(AppDb).GetMethod(nameof(LocalTime))!).HasStoreType("timestamp without time zone");
         b.Entity<Activity>().HasOne(a => a.User).WithMany().OnDelete(DeleteBehavior.Cascade);
-        // One recording per user and start time; the upload endpoint relies on this to reject parallel duplicates.
-        b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime }).IsUnique();
+        b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime });
+        // The same recording is stored once; the upload endpoint relies on this to reject parallel duplicates.
+        b.Entity<Activity>().HasIndex(a => new { a.UserId, a.DedupKey }).IsUnique().HasFilter("\"DedupKey\" IS NOT NULL");
         b.Entity<Activity>().ToTable(t =>
         {
             t.HasCheckConstraint("CK_Activities_WorkoutFeeling", "\"WorkoutFeeling\" BETWEEN 0 AND 100");

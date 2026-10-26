@@ -51,7 +51,8 @@ public class ActivityPrivateDetailsTests(ApiFixture api)
         Assert.DoesNotContain("heavy", shared);
         Assert.DoesNotContain("private_notes", shared);
         Assert.DoesNotContain("workout_rpe", shared);
-        Assert.DoesNotContain("hidden", shared);
+        Assert.DoesNotContain("hidden_details", shared);
+        Assert.DoesNotContain("hidden_override", shared);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.Http.GetAsync($"/api/v1/activities/{id}/private")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await SaveAsync(stranger, id, new { PrivateNotes = "mine now" })).StatusCode);
         var listed = await stranger.Http.GetStringAsync($"/api/v1/users/{(await owner.GetJsonAsync<JsonElement>("/api/v1/users/me")).GetProperty("id").GetInt32()}/activities");

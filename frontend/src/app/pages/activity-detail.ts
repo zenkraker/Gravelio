@@ -62,6 +62,12 @@ import { ActivityView } from '../components/activity-view';
           </button>
         }
       </header>
+      @if (a.is_hidden) {
+        <p class="hidden-note" i18n>
+          This activity is hidden. Only you can see it, and it is left out of your statistics, goals
+          and gear totals. You can unhide it under Edit details.
+        </p>
+      }
       @if (a.description) {
         <p>{{ a.description }}</p>
       }
@@ -93,6 +99,9 @@ import { ActivityView } from '../components/activity-view';
     }
   `,
   styles: `
+    .hidden-note {
+      color: var(--mat-sys-on-surface-variant);
+    }
     header {
       display: flex;
       justify-content: space-between;
