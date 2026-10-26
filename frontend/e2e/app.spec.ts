@@ -858,6 +858,62 @@ test('a second recording of the same workout is kept hidden and reported', async
   await expectAccessible(page);
 });
 
+test('export my data and import it into another account', async ({ page }) => {
+  const stamp = Date.now();
+  const password = 'Str0ng-pass!';
+  const names = [`e2e.xfer.a${stamp}`, `e2e.xfer.b${stamp}`];
+
+  await signIn(page);
+  const adminHeaders = { 'X-XSRF-TOKEN': await xsrf(page) };
+  for (const username of names) {
+    const created = await page.request.post('/api/v1/users', {
+      headers: adminHeaders,
+      data: {
+        name: 'E2E Xfer',
+        username,
+        email: `${username}@example.com`,
+        access_type: 'regular',
+        active: true,
+        password,
+      },
+    });
+    expect(created.status()).toBe(201);
+  }
+  await signOut(page);
+
+  await signIn(page, names[0], password);
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    multipart: {
+      file: {
+        name: 'x.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: gpx('E2E exported run', 'running', 9),
+      },
+    },
+  });
+  expect(upload.ok()).toBe(true);
+
+  await page.goto('/profile');
+  await expect(page.getByRole('heading', { name: 'Your data' })).toBeVisible();
+  await expectAccessible(page);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('link', { name: 'Export my data' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^gravelio-export-\d{8}\.zip$/);
+  const saved = test.info().outputPath('export.zip'); // the import only takes a .zip, and Playwright's own copy has no extension
+  await download.saveAs(saved);
+  await signOut(page);
+
+  await signIn(page, names[1], password);
+  await page.goto('/profile');
+  await page.locator('input[type=file]').setInputFiles(saved);
+  await expect(page.getByText(/Imported 1 activities/)).toBeVisible();
+  await page.goto('/activities');
+  await expect(page.getByRole('link', { name: 'E2E exported run' })).toBeVisible();
+});
+
 test('sign out ends the session', async ({ page }) => {
   await signIn(page);
   await page.getByRole('button', { name: 'Sign out' }).click();

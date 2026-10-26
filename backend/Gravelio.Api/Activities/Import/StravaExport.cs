@@ -46,6 +46,7 @@ public static class StravaExport
         using (archive)
         {
             if (archive.Entries.Count > MaxEntries) throw new InvalidActivityFileException("The export has too many files");
+            // The declared sizes only reject an honest oversized zip early; what is really read is counted by the budget.
             long uncompressed = 0;
             foreach (var entry in archive.Entries)
             {
@@ -53,12 +54,13 @@ public static class StravaExport
                 uncompressed += entry.Length;
                 if (uncompressed > MaxUncompressedBytes) throw new InvalidActivityFileException("The export expands to too much data");
             }
+            var budget = new ZipBudget(MaxUncompressedBytes, MaxEntryBytes);
             var csv = archive.Entries.FirstOrDefault(e => e.Name.Equals("activities.csv", StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidActivityFileException("The zip has no activities.csv. Upload the zip Strava gives you.");
             var files = archive.Entries.GroupBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-            using var reader = new StreamReader(csv.Open(), Encoding.UTF8);
+            using var reader = new StreamReader(budget.Open(csv), Encoding.UTF8);
             using var parser = new TextFieldParser(reader) { HasFieldsEnclosedInQuotes = true, TrimWhiteSpace = false };
             parser.SetDelimiters(",");
             var header = parser.ReadFields() ?? [];
@@ -87,7 +89,7 @@ public static class StravaExport
                 }
                 try
                 {
-                    activities.Add(new StravaActivity(file, ReadRow(row, entry), Text(row, GearColumn)));
+                    activities.Add(new StravaActivity(file, ReadRow(row, entry, budget), Text(row, GearColumn)));
                 }
                 catch (InvalidActivityFileException e)
                 {
@@ -96,19 +98,19 @@ public static class StravaExport
             }
             if (activities.Count == 0 && errors.Count == 0) throw new InvalidActivityFileException("activities.csv lists no activities");
             // Strava only exports bikes and shoes; a zip built from part of the export may have neither file.
-            var gear = ReadGear(archive, "bikes.csv", GearTypes.Bike)
-                .Concat(ReadGear(archive, "shoes.csv", GearTypes.Shoes))
+            var gear = ReadGear(archive, "bikes.csv", GearTypes.Bike, budget)
+                .Concat(ReadGear(archive, "shoes.csv", GearTypes.Shoes, budget))
                 .DistinctBy(g => g.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             return new Result(activities, gear, errors);
         }
     }
 
-    static List<StravaGear> ReadGear(ZipArchive archive, string fileName, int type)
+    static List<StravaGear> ReadGear(ZipArchive archive, string fileName, int type, ZipBudget budget)
     {
         var entry = archive.Entries.FirstOrDefault(e => e.Name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
         if (entry is null) return [];
-        using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+        using var reader = new StreamReader(budget.Open(entry), Encoding.UTF8);
         using var parser = new TextFieldParser(reader) { HasFieldsEnclosedInQuotes = true, TrimWhiteSpace = false };
         parser.SetDelimiters(",");
         parser.ReadFields(); // Localised header; the column order is stable.
@@ -122,9 +124,9 @@ public static class StravaExport
         return gear;
     }
 
-    static ParsedActivity ReadRow(string[] row, ZipArchiveEntry entry)
+    static ParsedActivity ReadRow(string[] row, ZipArchiveEntry entry, ZipBudget budget)
     {
-        using var raw = entry.Open();
+        using var raw = budget.Open(entry);
         string name = entry.Name;
         Stream stream = raw;
         GZipStream? gzip = null;

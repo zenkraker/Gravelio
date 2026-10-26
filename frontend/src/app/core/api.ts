@@ -402,3 +402,11 @@ export interface CreatedApiKey {
   created_at: string;
   expires_at: string | null;
 }
+
+export interface ImportDataResult {
+  gears: number;
+  goals: number;
+  health_entries: number;
+  activities_imported: number;
+  activities_skipped: number;
+}

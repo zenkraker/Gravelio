@@ -13,6 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PrivacySettings, User, problemMessage } from '../core/api';
 import { AuthService } from '../core/auth';
+import { DataTransfer } from '../components/data-transfer';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -24,6 +25,7 @@ type BooleanPrivacyKey = {
   selector: 'app-profile',
   providers: [OUTLINE_FIELDS],
   imports: [
+    DataTransfer,
     RouterLink,
     FormField,
     MatButtonModule,
@@ -241,6 +243,8 @@ type BooleanPrivacyKey = {
         </form>
       </mat-card-content>
     </mat-card>
+
+    <app-data-transfer />
   `,
   styles: `
     header {
