@@ -1196,6 +1196,9 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<bool>("HideActivityHr")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("HideActivityLaps")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("HideActivityLocation")
                         .HasColumnType("boolean");
 

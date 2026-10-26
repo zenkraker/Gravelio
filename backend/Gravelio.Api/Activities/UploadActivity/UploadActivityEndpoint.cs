@@ -79,7 +79,15 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
         var duplicates = fresh.Where(a => a.IsHidden).ToList();
         foreach (var a in duplicates) NotificationWriter.AddDuplicate(db, userId, user.Name, a.Id, a.Name, now);
-        if (duplicates.Count > 0) await NotificationWriter.TrySaveAsync(db, log, ct);
+        // Followers hear about an activity they are allowed to see; a hidden duplicate is not one of those.
+        var shared = fresh.Where(a => !a.IsHidden && a.Visibility != Visibilities.Private).ToList();
+        if (shared.Count > 0)
+        {
+            var followers = await db.Follows.Where(f => f.FolloweeId == userId && f.Status == FollowStatuses.Accepted).Select(f => f.FollowerId).ToListAsync(ct);
+            foreach (var a in shared)
+                foreach (var follower in followers) db.AddNewActivity(follower, userId, user.Name, a.Id, a.Name, now);
+        }
+        if (duplicates.Count > 0 || shared.Count > 0) await NotificationWriter.TrySaveAsync(db, log, ct);
         var owner = PersonRead.From(user);
         await Send.OkAsync(fresh.Select(a => ActivityRead.From(a, owner)).ToList(), ct);
     }

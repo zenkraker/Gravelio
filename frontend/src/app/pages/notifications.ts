@@ -124,6 +124,8 @@ export class NotificationsPage {
 
   protected message(n: Notification): string {
     switch (n.type) {
+      case 1:
+        return $localize`${n.actor_name} recorded “${n.activity_name}”.`;
       case 2:
         return $localize`“${n.activity_name}” looks like a duplicate and was hidden.`;
       case 11:

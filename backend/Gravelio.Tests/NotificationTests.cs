@@ -101,4 +101,46 @@ public class NotificationTests(ApiFixture api)
         Assert.Equal(2, items.Count);
         Assert.All(items, n => Assert.True(n.GetProperty("read").GetBoolean()));
     }
+
+    [Fact]
+    public async Task Followers_hear_about_a_new_shared_activity_and_nobody_else_does()
+    {
+        var admin = await api.LoginAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var names = new[] { $"newact.owner.{suffix}", $"newact.fan.{suffix}", $"newact.pending.{suffix}", $"newact.stranger.{suffix}" };
+        foreach (var name in names) await api.CreateUserAsync(admin, name);
+        var owner = await api.LoginAsync(names[0], "Str0ng-pass!");
+        var fan = await api.LoginAsync(names[1], "Str0ng-pass!");
+        var pending = await api.LoginAsync(names[2], "Str0ng-pass!");
+        var stranger = await api.LoginAsync(names[3], "Str0ng-pass!");
+        int ownerId = await IdAsync(owner), fanId = await IdAsync(fan);
+
+        Assert.Equal(HttpStatusCode.Created, (await fan.Http.PostAsync($"/api/v1/users/{ownerId}/followers", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PostAsync($"/api/v1/follow-requests/{fanId}/accept", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await pending.Http.PostAsync($"/api/v1/users/{ownerId}/followers", null)).StatusCode); // never accepted
+        var before = await UnreadAsync(fan);
+
+        // A private activity is nobody's business.
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PostAsync("/api/v1/activities/upload", TestData.Upload("a.gpx", TestData.Gpx("Quiet run", new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc))))).StatusCode);
+        Assert.Equal(before, await UnreadAsync(fan));
+
+        // Once the owner shares by default, the next upload is announced to accepted followers only.
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PutAsJsonAsync("/api/v1/users/me/privacy", new { DefaultActivityVisibility = 1 }, ApiClient.Json)).StatusCode);
+        var upload = await owner.Http.PostAsync("/api/v1/activities/upload", TestData.Upload("b.gpx", TestData.Gpx("Shared run", new DateTime(2026, 4, 2, 8, 0, 0, DateTimeKind.Utc))));
+        var activityId = (await upload.Content.ReadFromJsonAsync<JsonElement[]>(ApiClient.Json))!.Single().GetProperty("id").GetInt32();
+
+        Assert.Equal(before + 1, await UnreadAsync(fan));
+        var news = (await NotificationsAsync(fan)).GetProperty("items").EnumerateArray().First(n => n.GetProperty("type").GetInt32() == 1);
+        Assert.Equal(ownerId, news.GetProperty("actor_id").GetInt32());
+        Assert.Equal(activityId, news.GetProperty("activity_id").GetInt32());
+        Assert.Equal("Shared run", news.GetProperty("activity_name").GetString());
+        Assert.DoesNotContain(1, (await NotificationsAsync(pending)).GetProperty("items").EnumerateArray().Select(n => n.GetProperty("type").GetInt32()));
+        Assert.Equal(0, await UnreadAsync(stranger));
+        Assert.Equal(0, (await NotificationsAsync(owner)).GetProperty("items").EnumerateArray().Count(n => n.GetProperty("type").GetInt32() == 1));
+
+        // The same workout from another source is a hidden duplicate: the owner is told, the followers are not.
+        var again = await owner.Http.PostAsync("/api/v1/activities/upload", TestData.Upload("c.gpx", TestData.Gpx("Shared run again", new DateTime(2026, 4, 2, 8, 0, 0, DateTimeKind.Utc), points: 59)));
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+        Assert.Equal(before + 1, await UnreadAsync(fan));
+    }
 }

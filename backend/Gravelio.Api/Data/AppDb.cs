@@ -317,6 +317,7 @@ public class UserPrivacySettings
     public bool HideActivitySpeed { get; set; }
     public bool HideActivityPace { get; set; }
     public bool HideActivityGear { get; set; }
+    public bool HideActivityLaps { get; set; }
 }
 
 /// One body-composition reading per user and day.

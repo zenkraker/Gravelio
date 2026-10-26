@@ -358,6 +358,7 @@ export interface PrivacySettings {
   hide_activity_speed: boolean;
   hide_activity_pace: boolean;
   hide_activity_gear: boolean;
+  hide_activity_laps: boolean;
 }
 
 export interface Goal {

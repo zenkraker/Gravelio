@@ -11,6 +11,8 @@ public static class VisibleLaps
     public static async Task<List<LapRead>> ReadAsync(AppDb db, int activityId, int ownerId, DateTime start, HiddenDetails? hiddenOverride, bool isOwner, CancellationToken ct)
     {
         var s = isOwner ? null : (await PrivacyMask.ForOwnerAsync(db, ownerId, ct)).Effective(hiddenOverride) ?? new UserPrivacySettings();
+        // Hidden laps leave nothing to show, whatever else is visible.
+        if (s is { HideActivityLaps: true }) return [];
         var laps = await db.ActivityLaps.AsNoTracking().Where(l => l.ActivityId == activityId).OrderBy(l => l.Index).ToListAsync(ct);
         return laps.Select(l =>
         {

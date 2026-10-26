@@ -25,6 +25,7 @@ const HIDE_OPTIONS = [
   { id: 'speed', label: $localize`Speed` },
   { id: 'pace', label: $localize`Pace` },
   { id: 'gear', label: $localize`Gear` },
+  { id: 'laps', label: $localize`Laps` },
 ];
 
 /** The owner's edit form for one activity: its name, type and notes, how it felt, and what to hide from others. */

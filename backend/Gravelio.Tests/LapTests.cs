@@ -224,4 +224,25 @@ public class LapTests(ApiFixture api)
         Assert.Equal(original.Length, copy.Length);
         Assert.Equal(original.Select(l => l.ToString()), copy.Select(l => l.ToString()));
     }
+
+    [Fact]
+    public async Task A_hidden_lap_list_is_empty_for_others_whether_set_for_everything_or_one_activity()
+    {
+        var admin = await api.LoginAsync();
+        var (owner, id) = await UploadAsync("laps.hidelist", Visibilities.Public);
+        await api.CreateUserAsync(admin, "laps.looker", Password);
+        var looker = await api.LoginAsync("laps.looker", Password);
+        Assert.Equal(2, (await looker.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps")).Length);
+
+        // Hidden for this activity only.
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PutAsJsonAsync($"/api/v1/activities/{id}/private", new { HiddenDetails = new[] { "laps" } }, ApiClient.Json)).StatusCode);
+        Assert.Empty(await looker.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps"));
+        Assert.Equal(2, (await owner.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps")).Length);
+
+        // Back to the owner's own settings, which now hide laps everywhere.
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PutAsJsonAsync($"/api/v1/activities/{id}/private", new { HiddenDetails = (string[]?)null }, ApiClient.Json)).StatusCode);
+        Assert.Equal(2, (await looker.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps")).Length);
+        Assert.Equal(HttpStatusCode.OK, (await owner.Http.PutAsJsonAsync("/api/v1/users/me/privacy", new { DefaultActivityVisibility = Visibilities.Public, HideActivityLaps = true }, ApiClient.Json)).StatusCode);
+        Assert.Empty(await looker.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps"));
+    }
 }

@@ -133,7 +133,7 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   await expectAccessible(page);
 
   await page.getByRole('link', { name: /Administrator/ }).click();
-  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: 'Hide heart rate' })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Hide heart rate' }).check();
   await page.getByRole('button', { name: 'Save privacy' }).click();
@@ -1159,7 +1159,7 @@ test('export my data and import it into another account', async ({ page }) => {
 
   await signIn(page, names[1], password);
   await page.goto('/profile');
-  await page.locator('input[type=file]').setInputFiles(saved);
+  await page.getByLabel('Export file to import').setInputFiles(saved);
   await expect(page.getByText(/Imported 1 activities/)).toBeVisible();
   await page.goto('/activities');
   await expect(page.getByRole('link', { name: 'E2E exported run' })).toBeVisible();

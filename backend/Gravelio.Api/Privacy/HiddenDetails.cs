@@ -18,6 +18,7 @@ public enum HiddenDetails
     Speed = 128,
     Pace = 256,
     Gear = 512,
+    Laps = 1024,
 }
 
 public static class HiddenDetailNames
@@ -35,6 +36,7 @@ public static class HiddenDetailNames
         ["speed"] = HiddenDetails.Speed,
         ["pace"] = HiddenDetails.Pace,
         ["gear"] = HiddenDetails.Gear,
+        ["laps"] = HiddenDetails.Laps,
     };
 
     public static string[]? ToNames(HiddenDetails? details) =>
@@ -59,5 +61,6 @@ public static class HiddenDetailNames
             HideActivitySpeed = choice.HasFlag(HiddenDetails.Speed),
             HideActivityPace = choice.HasFlag(HiddenDetails.Pace),
             HideActivityGear = choice.HasFlag(HiddenDetails.Gear),
+            HideActivityLaps = choice.HasFlag(HiddenDetails.Laps),
         };
 }

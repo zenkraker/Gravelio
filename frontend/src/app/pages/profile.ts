@@ -203,6 +203,12 @@ type BooleanPrivacyKey = {
                 i18n
                 >Hide gear</mat-checkbox
               >
+              <mat-checkbox
+                [checked]="p.hide_activity_laps"
+                (change)="setHide('hide_activity_laps', $event.checked)"
+                i18n
+                >Hide laps</mat-checkbox
+              >
             </div>
             @if (privacyError()) {
               <p class="error" role="alert">{{ privacyError() }}</p>
