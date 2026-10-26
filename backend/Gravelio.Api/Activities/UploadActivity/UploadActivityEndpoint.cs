@@ -19,6 +19,7 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
     {
         Post("/activities/upload");
         AllowFileUploads();
+        Options(o => o.WithMetadata(UploadLimits.For(MaxUploadBytes)));
     }
 
     public override async Task HandleAsync(UploadActivityRequest req, CancellationToken ct)

@@ -158,173 +158,173 @@ Gravelio routes below are under `/api/v1`. "E:" is the Endurain route or module;
 
 ### B1. Authentication and account security
 
-| ID | Feature (Endurain) | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-A01 | Local login, logout (`/auth/login`, `/auth/logout`) | `POST /auth/login`, `/auth/logout` (Identity cookie) | DONE | | Different mechanism by design (JWT+refresh vs cookie). |
-| F-A02 | Token refresh `/auth/refresh`, rotation, reuse detection | n/a | SKIP | | Cookie sliding expiry replaces it (R-10). |
-| F-A03 | Sessions: list/revoke own (`/profile/sessions`), admin list/revoke per user (`/sessions/user/{id}`) | none | MISSING | P2 | R-10. |
-| F-A04 | Progressive login lockout | Identity lockout 5 tries / 15 min | PARTIAL | P3 | Identity options only; Endurain escalates. |
-| F-A05 | Step-up auth for sensitive changes + own lockout | change-password checks current password only | MISSING | P2 | R-03. |
-| F-A06 | MFA TOTP: status, setup, enable, disable, verify at login (`/profile/mfa/*`, `/auth/mfa/verify`) | none | MISSING | P1 | R-04. `UserManager`: `GetAuthenticatorKeyAsync`, `VerifyTwoFactorTokenAsync`; `SignInManager.TwoFactorAuthenticatorSignInAsync`. Encrypted secret is Identity's. Frontend QR: render `otpauth://` client side. |
-| F-A07 | MFA backup codes: status, regenerate, use at login | none | MISSING | P1 | `GenerateNewTwoFactorRecoveryCodesAsync`, `RedeemTwoFactorRecoveryCodeAsync`. |
-| F-A08 | API keys: list, create, revoke, delete; `X-API-Key` | none | MISSING | P1 | R-09. Unlocks Gadgetbridge/RunnerUp style auto-upload. |
-| F-A09 | Identity providers (OIDC SSO): admin CRUD, templates, login, link/unlink, auto-create, mapping, auto-redirect, mobile PKCE | none | MISSING | P2 | R-11, R-05. |
-| F-A10 | Sign-up with email verification | `POST /auth/signup`, `/auth/verify-email` | DONE | | |
-| F-A11 | Sign-up admin approval (flag `pending_admin_approval`, approve route `PUT /users/{id}/approve`, admin notification) | signup creates `Active=false`; admin edits `Active` in `PUT /users/{id}` | PARTIAL | P2 | No approve endpoint, no admin notification, and "waiting for approval" is indistinguishable from "deactivated". Add `PendingApproval` bool + `Approve` endpoint + notification type. |
-| F-A12 | Password reset by email (`/password-reset/request`, `/confirm`) | `POST /auth/forgot-password`, `/auth/reset-password` | DONE | | |
-| F-A13 | Configurable password policy (server settings `password_type`, lengths) | fixed 8 / 12 (admins) | PARTIAL | P3 | Options pattern would need a DB-backed `IOptionsMonitor`; low value. |
-| F-A14 | Local login can be disabled when SSO is on (`local_login_enabled`) | none | MISSING | P3 | Needs F-A09. |
-| F-A15 | Rate-limit tiers | login only | PARTIAL | P1 | R-02. |
+| ID    | Feature (Endurain)                                                                                                         | Gravelio                                                                 | Status  | Pri | Notes                                                                                                                                                                                                          |
+| ----- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------- | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-A01 | Local login, logout (`/auth/login`, `/auth/logout`)                                                                        | `POST /auth/login`, `/auth/logout` (Identity cookie)                     | DONE    |     | Different mechanism by design (JWT+refresh vs cookie).                                                                                                                                                         |
+| F-A02 | Token refresh `/auth/refresh`, rotation, reuse detection                                                                   | n/a                                                                      | SKIP    |     | Cookie sliding expiry replaces it (R-10).                                                                                                                                                                      |
+| F-A03 | Sessions: list/revoke own (`/profile/sessions`), admin list/revoke per user (`/sessions/user/{id}`)                        | none                                                                     | MISSING | P2  | R-10.                                                                                                                                                                                                          |
+| F-A04 | Progressive login lockout                                                                                                  | Identity lockout 5 tries / 15 min                                        | PARTIAL | P3  | Identity options only; Endurain escalates.                                                                                                                                                                     |
+| F-A05 | Step-up auth for sensitive changes + own lockout                                                                           | change-password checks current password only                             | MISSING | P2  | R-03.                                                                                                                                                                                                          |
+| F-A06 | MFA TOTP: status, setup, enable, disable, verify at login (`/profile/mfa/*`, `/auth/mfa/verify`)                           | none                                                                     | MISSING | P1  | R-04. `UserManager`: `GetAuthenticatorKeyAsync`, `VerifyTwoFactorTokenAsync`; `SignInManager.TwoFactorAuthenticatorSignInAsync`. Encrypted secret is Identity's. Frontend QR: render `otpauth://` client side. |
+| F-A07 | MFA backup codes: status, regenerate, use at login                                                                         | none                                                                     | MISSING | P1  | `GenerateNewTwoFactorRecoveryCodesAsync`, `RedeemTwoFactorRecoveryCodeAsync`.                                                                                                                                  |
+| F-A08 | API keys: list, create, revoke, delete; `X-API-Key`                                                                        | none                                                                     | MISSING | P1  | R-09. Unlocks Gadgetbridge/RunnerUp style auto-upload.                                                                                                                                                         |
+| F-A09 | Identity providers (OIDC SSO): admin CRUD, templates, login, link/unlink, auto-create, mapping, auto-redirect, mobile PKCE | none                                                                     | MISSING | P2  | R-11, R-05.                                                                                                                                                                                                    |
+| F-A10 | Sign-up with email verification                                                                                            | `POST /auth/signup`, `/auth/verify-email`                                | DONE    |     |                                                                                                                                                                                                                |
+| F-A11 | Sign-up admin approval (flag `pending_admin_approval`, approve route `PUT /users/{id}/approve`, admin notification)        | signup creates `Active=false`; admin edits `Active` in `PUT /users/{id}` | PARTIAL | P2  | No approve endpoint, no admin notification, and "waiting for approval" is indistinguishable from "deactivated". Add `PendingApproval` bool + `Approve` endpoint + notification type.                           |
+| F-A12 | Password reset by email (`/password-reset/request`, `/confirm`)                                                            | `POST /auth/forgot-password`, `/auth/reset-password`                     | DONE    |     |                                                                                                                                                                                                                |
+| F-A13 | Configurable password policy (server settings `password_type`, lengths)                                                    | fixed 8 / 12 (admins)                                                    | PARTIAL | P3  | Options pattern would need a DB-backed `IOptionsMonitor`; low value.                                                                                                                                           |
+| F-A14 | Local login can be disabled when SSO is on (`local_login_enabled`)                                                         | none                                                                     | MISSING | P3  | Needs F-A09.                                                                                                                                                                                                   |
+| F-A15 | Rate-limit tiers                                                                                                           | login only                                                               | PARTIAL | P1  | R-02.                                                                                                                                                                                                          |
 
 ### B2. Users and profile
 
-| ID | Feature | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-U01 | Own profile read/update (`GET/PUT /profile`) | `GET/PUT /users/me` | DONE | | |
-| F-U02 | Change own password | `PUT /users/me/password` | DONE | | Revokes other sessions. |
-| F-U03 | Admin user CRUD, list paged | `GET/POST /users`, `PUT/DELETE /users/{id}` | DONE | | |
-| F-U04 | Admin lookups: by id, username, email, "username contains" | list only | PARTIAL | P3 | `GET /users` has no search; add `q` like gears/people. |
-| F-U05 | Profile photo upload/delete, avatar everywhere | none | MISSING | P2 | Store under data volume, re-encode with a BCL-compatible imaging step (decode check, size cap, strip EXIF); serve through an authorized endpoint. No new image package unless needed. |
-| F-U06 | Privacy settings (default visibility, 12 hide flags) | `GET/PUT /users/me/privacy` (default visibility + 10 flags) | PARTIAL | P2 | Missing flags: laps, workout sets/steps (no such data yet). |
-| F-U07 | "Existing activities visibility" bulk update (`PATCH /activities`) | none | MISSING | P3 | One `ExecuteUpdateAsync`. |
-| F-U08 | Goals: list, results, create, update, delete (`/profile/goals`) | none | MISSING | P2 | R-18. |
-| F-U09 | Default gear per activity type | `GET/PUT /gears/defaults` | DONE | | Row per slot instead of 15 columns. |
-| F-U10 | Integrations settings (Strava/Garmin link state) | none | MISSING | P2 | R-12, R-14. |
-| F-U11 | Profile export (ZIP) and import | none | MISSING | P2 | Streaming `ZipArchive` response; secrets stripped; import applies R-06 limits and the same dedupe as upload. Needed for GDPR-style "download my data". |
-| F-U12 | Delete user cascades data and files | `DELETE /users/{id}` (FK cascades in `AppDb.OnModelCreating`) | PARTIAL | P2 | Files (photo, media, retained source files) have no cleanup yet because those features do not exist; add the cleanup when they land. |
-| F-U13 | Search users (SearchView) | `GET /people?q=` | DONE | | |
-| F-U14 | Own-account deletion by the user | none | MISSING | P3 | Endurain's only delete route is the admin one (`DELETE /users/{id}`, scope `users:write`); decide product-wise. |
+| ID    | Feature                                                            | Gravelio                                                      | Status  | Pri | Notes                                                                                                                                                                                 |
+| ----- | ------------------------------------------------------------------ | ------------------------------------------------------------- | ------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-U01 | Own profile read/update (`GET/PUT /profile`)                       | `GET/PUT /users/me`                                           | DONE    |     |                                                                                                                                                                                       |
+| F-U02 | Change own password                                                | `PUT /users/me/password`                                      | DONE    |     | Revokes other sessions.                                                                                                                                                               |
+| F-U03 | Admin user CRUD, list paged                                        | `GET/POST /users`, `PUT/DELETE /users/{id}`                   | DONE    |     |                                                                                                                                                                                       |
+| F-U04 | Admin lookups: by id, username, email, "username contains"         | list only                                                     | PARTIAL | P3  | `GET /users` has no search; add `q` like gears/people.                                                                                                                                |
+| F-U05 | Profile photo upload/delete, avatar everywhere                     | none                                                          | MISSING | P2  | Store under data volume, re-encode with a BCL-compatible imaging step (decode check, size cap, strip EXIF); serve through an authorized endpoint. No new image package unless needed. |
+| F-U06 | Privacy settings (default visibility, 12 hide flags)               | `GET/PUT /users/me/privacy` (default visibility + 10 flags)   | PARTIAL | P2  | Missing flags: laps, workout sets/steps (no such data yet).                                                                                                                           |
+| F-U07 | "Existing activities visibility" bulk update (`PATCH /activities`) | none                                                          | MISSING | P3  | One `ExecuteUpdateAsync`.                                                                                                                                                             |
+| F-U08 | Goals: list, results, create, update, delete (`/profile/goals`)    | none                                                          | MISSING | P2  | R-18.                                                                                                                                                                                 |
+| F-U09 | Default gear per activity type                                     | `GET/PUT /gears/defaults`                                     | DONE    |     | Row per slot instead of 15 columns.                                                                                                                                                   |
+| F-U10 | Integrations settings (Strava/Garmin link state)                   | none                                                          | MISSING | P2  | R-12, R-14.                                                                                                                                                                           |
+| F-U11 | Profile export (ZIP) and import                                    | none                                                          | MISSING | P2  | Streaming `ZipArchive` response; secrets stripped; import applies R-06 limits and the same dedupe as upload. Needed for GDPR-style "download my data".                                |
+| F-U12 | Delete user cascades data and files                                | `DELETE /users/{id}` (FK cascades in `AppDb.OnModelCreating`) | PARTIAL | P2  | Files (photo, media, retained source files) have no cleanup yet because those features do not exist; add the cleanup when they land.                                                  |
+| F-U13 | Search users (SearchView)                                          | `GET /people?q=`                                              | DONE    |     |                                                                                                                                                                                       |
+| F-U14 | Own-account deletion by the user                                   | none                                                          | MISSING | P3  | Endurain's only delete route is the admin one (`DELETE /users/{id}`, scope `users:write`); decide product-wise.                                                                       |
 
 ### B3. Activities
 
-| ID | Feature | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-A01a | Upload GPX / TCX / FIT | `POST /activities/upload` | DONE | | Multi-session FIT supported. |
-| F-A02a | `.gz` wrapped files | `SupportedExtensions` = gpx, tcx, fit | MISSING | P3 | R-06. |
-| F-A03a | Duplicate detection (3 tiers) | unique `(UserId, StartTime)` → 409 | PARTIAL | P2 | R-24. |
-| F-A04a | Bulk import ZIP + job progress | none | MISSING | P2 | R-27. |
-| F-A05a | Bulk import from server folder | none | MISSING | P3 | R-27. |
-| F-A06a | Strava bulk export import (activities, gear, photos) | `POST /activities/import/strava` (activities + gear) | PARTIAL | P2 | Photos not imported (no media yet). R-34. |
-| F-A07a | Nike Run Club import | documentation only in Endurain | SKIP | | Convert to GPX/FIT first. |
-| F-A08a | List own activities with filters: type, date range, name, sort | `GET /activities` paged only | PARTIAL | P1 | Add `type`, `from`, `to`, `q`, `sort`, `order`; date filter uses the activity-local date (R-31). |
-| F-A09a | Get activity | `GET /activities/{id}` | DONE | | |
-| F-A10a | Edit activity: name, description, type, visibility | `PUT /activities/{id}` | DONE | | |
-| F-A11a | Edit extras: `private_notes`, `workout_feeling`, `workout_rpe`, `is_hidden`, per-activity hide flags | none | MISSING | P2 | R-01, R-24. `private_notes` must never reach non-owners (minimal DTO). |
-| F-A12a | Optimistic concurrency on edit | none | MISSING | P2 | R-25. |
-| F-A13a | Delete activity (+ cleans blobs) | `DELETE /activities/{id}` | DONE | | Blob cleanup when blobs exist. |
-| F-A14a | Per-activity hide overrides | none | MISSING | P2 | R-01. |
-| F-A15a | Streams: all, by type (`/streams/{type}`) with per-type masking | `GET /activities/{id}/streams` (all, masked) | DONE | | Single-type route is optional. |
-| F-A16a | Heart-rate zones computed on read | none | MISSING | P2 | From `User.MaxHeartRate`; zone boundaries (60/70/… % of max HR) as in Endurain `modules/activities/activity_streams/hr_zones.py`. |
-| F-A17a | Laps (`/{id}/laps`) | none | MISSING | P2 | Parsers drop laps today. R-21. Mask coordinates with the map. |
-| F-A18a | Workout sets, workout steps, exercise titles | none | MISSING | P3 | R-21, R-22. |
-| F-A19a | Media (photos): list, upload, delete | none | MISSING | P3 | Needs the image helper from F-U05. |
-| F-A20a | Reverse geocoding city/town/country (background + backfill) | none | MISSING | P2 | R-05, R-23. Provider: Nominatim (rate limit 1 req/s, set a User-Agent) via `IHttpClientFactory`; run in a `BackgroundService`. Hidden when `HideActivityLocation` (audit rule 2). |
-| F-A21a | Map thumbnails rendered server-side from tile server | none | MISSING | P3 | Heavy (tile fetch + stitching). Alternative: render the route client-side only. Decide before building. |
-| F-A22a | Summary: week / month / year / lifetime with type breakdown | `GET /activities/stats` | DONE | | |
-| F-A23a | Following feed | `GET /activities/feed` | PARTIAL | P3 | R-32 keyset. |
-| F-A24a | Another user's activities | `GET /users/{id}/activities` | DONE | | Masked. |
-| F-A25a | Activities by gear (`/activities/gears/{id}`) | none | MISSING | P2 | Needed by the gear detail page. |
-| F-A26a | Public share link (anonymous read of one activity + laps/streams) | none | MISSING | P1 | R-33, audit rules 1–2. Needs server setting F-S02 and `AllowAnonymous` endpoints with a dedicated minimal DTO. |
-| F-A27a | Activity types list | `GET /activities/types` | DONE | | |
-| F-A28a | Refresh/re-import activities from providers (`/refresh`) | none | MISSING | P3 | After Strava sync exists. |
-| F-A29a | Retain the source file per activity; export it | none | MISSING | P3 | Endurain keeps the original under a blob area for export. |
-| F-A30a | Markdown description editor | plain text | SKIP | | Avoids an XSS surface. Revisit with a sanitising renderer. |
+| ID     | Feature                                                                                              | Gravelio                                             | Status  | Pri | Notes                                                                                                                                                                             |
+| ------ | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-A01a | Upload GPX / TCX / FIT                                                                               | `POST /activities/upload`                            | DONE    |     | Multi-session FIT supported.                                                                                                                                                      |
+| F-A02a | `.gz` wrapped files                                                                                  | `SupportedExtensions` = gpx, tcx, fit                | MISSING | P3  | R-06.                                                                                                                                                                             |
+| F-A03a | Duplicate detection (3 tiers)                                                                        | unique `(UserId, StartTime)` → 409                   | PARTIAL | P2  | R-24.                                                                                                                                                                             |
+| F-A04a | Bulk import ZIP + job progress                                                                       | none                                                 | MISSING | P2  | R-27.                                                                                                                                                                             |
+| F-A05a | Bulk import from server folder                                                                       | none                                                 | MISSING | P3  | R-27.                                                                                                                                                                             |
+| F-A06a | Strava bulk export import (activities, gear, photos)                                                 | `POST /activities/import/strava` (activities + gear) | PARTIAL | P2  | Photos not imported (no media yet). R-34.                                                                                                                                         |
+| F-A07a | Nike Run Club import                                                                                 | documentation only in Endurain                       | SKIP    |     | Convert to GPX/FIT first.                                                                                                                                                         |
+| F-A08a | List own activities with filters: type, date range, name, sort                                       | `GET /activities` paged only                         | PARTIAL | P1  | Add `type`, `from`, `to`, `q`, `sort`, `order`; date filter uses the activity-local date (R-31).                                                                                  |
+| F-A09a | Get activity                                                                                         | `GET /activities/{id}`                               | DONE    |     |                                                                                                                                                                                   |
+| F-A10a | Edit activity: name, description, type, visibility                                                   | `PUT /activities/{id}`                               | DONE    |     |                                                                                                                                                                                   |
+| F-A11a | Edit extras: `private_notes`, `workout_feeling`, `workout_rpe`, `is_hidden`, per-activity hide flags | none                                                 | MISSING | P2  | R-01, R-24. `private_notes` must never reach non-owners (minimal DTO).                                                                                                            |
+| F-A12a | Optimistic concurrency on edit                                                                       | none                                                 | MISSING | P2  | R-25.                                                                                                                                                                             |
+| F-A13a | Delete activity (+ cleans blobs)                                                                     | `DELETE /activities/{id}`                            | DONE    |     | Blob cleanup when blobs exist.                                                                                                                                                    |
+| F-A14a | Per-activity hide overrides                                                                          | none                                                 | MISSING | P2  | R-01.                                                                                                                                                                             |
+| F-A15a | Streams: all, by type (`/streams/{type}`) with per-type masking                                      | `GET /activities/{id}/streams` (all, masked)         | DONE    |     | Single-type route is optional.                                                                                                                                                    |
+| F-A16a | Heart-rate zones computed on read                                                                    | none                                                 | MISSING | P2  | From `User.MaxHeartRate`; zone boundaries (60/70/… % of max HR) as in Endurain `modules/activities/activity_streams/hr_zones.py`.                                                 |
+| F-A17a | Laps (`/{id}/laps`)                                                                                  | none                                                 | MISSING | P2  | Parsers drop laps today. R-21. Mask coordinates with the map.                                                                                                                     |
+| F-A18a | Workout sets, workout steps, exercise titles                                                         | none                                                 | MISSING | P3  | R-21, R-22.                                                                                                                                                                       |
+| F-A19a | Media (photos): list, upload, delete                                                                 | none                                                 | MISSING | P3  | Needs the image helper from F-U05.                                                                                                                                                |
+| F-A20a | Reverse geocoding city/town/country (background + backfill)                                          | none                                                 | MISSING | P2  | R-05, R-23. Provider: Nominatim (rate limit 1 req/s, set a User-Agent) via `IHttpClientFactory`; run in a `BackgroundService`. Hidden when `HideActivityLocation` (audit rule 2). |
+| F-A21a | Map thumbnails rendered server-side from tile server                                                 | none                                                 | MISSING | P3  | Heavy (tile fetch + stitching). Alternative: render the route client-side only. Decide before building.                                                                           |
+| F-A22a | Summary: week / month / year / lifetime with type breakdown                                          | `GET /activities/stats`                              | DONE    |     |                                                                                                                                                                                   |
+| F-A23a | Following feed                                                                                       | `GET /activities/feed`                               | PARTIAL | P3  | R-32 keyset.                                                                                                                                                                      |
+| F-A24a | Another user's activities                                                                            | `GET /users/{id}/activities`                         | DONE    |     | Masked.                                                                                                                                                                           |
+| F-A25a | Activities by gear (`/activities/gears/{id}`)                                                        | none                                                 | MISSING | P2  | Needed by the gear detail page.                                                                                                                                                   |
+| F-A26a | Public share link (anonymous read of one activity + laps/streams)                                    | none                                                 | MISSING | P1  | R-33, audit rules 1–2. Needs server setting F-S02 and `AllowAnonymous` endpoints with a dedicated minimal DTO.                                                                    |
+| F-A27a | Activity types list                                                                                  | `GET /activities/types`                              | DONE    |     |                                                                                                                                                                                   |
+| F-A28a | Refresh/re-import activities from providers (`/refresh`)                                             | none                                                 | MISSING | P3  | After Strava sync exists.                                                                                                                                                         |
+| F-A29a | Retain the source file per activity; export it                                                       | none                                                 | MISSING | P3  | Endurain keeps the original under a blob area for export.                                                                                                                         |
+| F-A30a | Markdown description editor                                                                          | plain text                                           | SKIP    |     | Avoids an XSS surface. Revisit with a sanitising renderer.                                                                                                                        |
 
 ### B4. Gears
 
-| ID | Feature | Gravelio | Status | Pri |
-|---|---|---|---|---|
-| F-G01 | Gear CRUD, filters (nickname, type), paged | `/gears` CRUD, `q`, `gear_type`, `active` | DONE | |
-| F-G02 | Components CRUD, component types | `/gears/{id}/components`, `/gears/component-types` | DONE | |
-| F-G03 | Component wear (distance since purchase) | `used_distance` | DONE | |
-| F-G04 | Default gear per activity type | see F-U09 | DONE | |
-| F-G05 | Gear sync from Strava / Garmin (provider gear ids) | Strava export maps gear by name only | PARTIAL | P3 |
-| F-G06 | Import Strava bikes/shoes (`/strava/import/bikes`, `/shoes`) | via export import | PARTIAL | P3 |
+| ID    | Feature                                                      | Gravelio                                           | Status  | Pri |
+| ----- | ------------------------------------------------------------ | -------------------------------------------------- | ------- | --- |
+| F-G01 | Gear CRUD, filters (nickname, type), paged                   | `/gears` CRUD, `q`, `gear_type`, `active`          | DONE    |     |
+| F-G02 | Components CRUD, component types                             | `/gears/{id}/components`, `/gears/component-types` | DONE    |     |
+| F-G03 | Component wear (distance since purchase)                     | `used_distance`                                    | DONE    |     |
+| F-G04 | Default gear per activity type                               | see F-U09                                          | DONE    |     |
+| F-G05 | Gear sync from Strava / Garmin (provider gear ids)           | Strava export maps gear by name only               | PARTIAL | P3  |
+| F-G06 | Import Strava bikes/shoes (`/strava/import/bikes`, `/shoes`) | via export import                                  | PARTIAL | P3  |
 
 ### B5. Health
 
-| ID | Feature | Gravelio | Status | Pri |
-|---|---|---|---|---|
-| F-H01 | Weight CRUD (+ body composition) | `/health/weight` | DONE | |
-| F-H02 | Steps CRUD | `/health/steps` | DONE | |
-| F-H03 | Sleep CRUD + scoring | `/health/sleep`, `Health/SleepScoring.cs` | DONE | |
-| F-H04 | Water CRUD (day total) | `/health/water` | DONE | |
-| F-H05 | Targets get/put | `/health/targets` | DONE | |
-| F-H06 | Fasting CRUD, active, stats, complete | `/health/fasting*` | DONE | |
-| F-H07 | Bowel movements CRUD | `/health/poop` | DONE | |
-| F-H08 | Daily stats `/health/stats/daily` | none | MISSING | P2 |
-| F-H09 | Health dashboard, resting heart rate view | none | MISSING | P3 |
-| F-H10 | Garmin health sync (body composition, sleep, steps) | none | MISSING | P3 | (R-13) |
-| F-H11 | Derived values: BMI at read | BMI stored | PARTIAL | P3 | R-16 |
+| ID    | Feature                                             | Gravelio                                  | Status  | Pri |
+| ----- | --------------------------------------------------- | ----------------------------------------- | ------- | --- |
+| F-H01 | Weight CRUD (+ body composition)                    | `/health/weight`                          | DONE    |     |
+| F-H02 | Steps CRUD                                          | `/health/steps`                           | DONE    |     |
+| F-H03 | Sleep CRUD + scoring                                | `/health/sleep`, `Health/SleepScoring.cs` | DONE    |     |
+| F-H04 | Water CRUD (day total)                              | `/health/water`                           | DONE    |     |
+| F-H05 | Targets get/put                                     | `/health/targets`                         | DONE    |     |
+| F-H06 | Fasting CRUD, active, stats, complete               | `/health/fasting*`                        | DONE    |     |
+| F-H07 | Bowel movements CRUD                                | `/health/poop`                            | DONE    |     |
+| F-H08 | Daily stats `/health/stats/daily`                   | none                                      | MISSING | P2  |
+| F-H09 | Health dashboard, resting heart rate view           | none                                      | MISSING | P3  |
+| F-H10 | Garmin health sync (body composition, sleep, steps) | none                                      | MISSING | P3  | (R-13) |
+| F-H11 | Derived values: BMI at read                         | BMI stored                                | PARTIAL | P3  | R-16   |
 
 ### B6. Social and notifications
 
-| ID | Feature | Gravelio | Status | Pri |
-|---|---|---|---|---|
-| F-N01 | Followers/following lists, relationship, follow request, accept, reject/cancel, remove follower | `/users/{id}/followers`, `/following`, `/relationship`, `/follow-requests*` | DONE | |
-| F-N02 | Notifications: list paged, unread count, mark read, mark all | `/notifications*` | DONE | |
-| F-N03 | Notification get by id | none | MISSING | P3 |
-| F-N04 | Notification types NEW_ACTIVITY, DUPLICATE_ACTIVITY, GARMIN_TOKEN_EXPIRED, ADMIN_NEW_SIGN_UP_APPROVAL_REQUEST | follow request + accepted only | PARTIAL | P2 |
-| F-N05 | Live push over WebSocket | polling | MISSING | P3 | R-29 |
+| ID    | Feature                                                                                                       | Gravelio                                                                    | Status  | Pri |
+| ----- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------- | --- |
+| F-N01 | Followers/following lists, relationship, follow request, accept, reject/cancel, remove follower               | `/users/{id}/followers`, `/following`, `/relationship`, `/follow-requests*` | DONE    |     |
+| F-N02 | Notifications: list paged, unread count, mark read, mark all                                                  | `/notifications*`                                                           | DONE    |     |
+| F-N03 | Notification get by id                                                                                        | none                                                                        | MISSING | P3  |
+| F-N04 | Notification types NEW_ACTIVITY, DUPLICATE_ACTIVITY, GARMIN_TOKEN_EXPIRED, ADMIN_NEW_SIGN_UP_APPROVAL_REQUEST | follow request + accepted only                                              | PARTIAL | P2  |
+| F-N05 | Live push over WebSocket                                                                                      | polling                                                                     | MISSING | P3  | R-29 |
 
 ### B7. Server settings (admin)
 
-| ID | Feature | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-S01 | Sign-up flags (enabled, email verification, admin approval) | `GET/PUT /server-settings` | DONE | | `GET /server-settings/public` for the login page. |
-| F-S02 | Public shareable links (+ show owner info) | none | MISSING | P1 | Prereq of F-A26a. |
-| F-S03 | Default units / currency / records per page | none | MISSING | P3 | R-20: defaults for new users only. |
-| F-S04 | Tile server URL, attribution, API key, map background colour; tile map templates (`/tile_maps_templates`) | OSM hardcoded in the SPA; nginx CSP lists tiles | MISSING | P2 | Admin-chosen tile URL changes the CSP `img-src`; either keep one fixed provider or render nginx CSP from the setting at start. API key stored protected (R-07). |
-| F-S05 | Login page photo upload/delete | none | MISSING | P3 | |
-| F-S06 | SSO flags (enabled, auto redirect, local login) | none | MISSING | P2 | F-A09 |
-| F-S07 | Email configuration view and test email (`/email`, `/email/test`) | `EmailConfigured` flag only | PARTIAL | P2 | Add `POST /server-settings/email/test` sending to the admin's own address; rate limit `sensitive`. |
-| F-S08 | Password policy setting | none | MISSING | P3 | F-A13 |
+| ID    | Feature                                                                                                   | Gravelio                                        | Status  | Pri | Notes                                                                                                                                                           |
+| ----- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-S01 | Sign-up flags (enabled, email verification, admin approval)                                               | `GET/PUT /server-settings`                      | DONE    |     | `GET /server-settings/public` for the login page.                                                                                                               |
+| F-S02 | Public shareable links (+ show owner info)                                                                | none                                            | MISSING | P1  | Prereq of F-A26a.                                                                                                                                               |
+| F-S03 | Default units / currency / records per page                                                               | none                                            | MISSING | P3  | R-20: defaults for new users only.                                                                                                                              |
+| F-S04 | Tile server URL, attribution, API key, map background colour; tile map templates (`/tile_maps_templates`) | OSM hardcoded in the SPA; nginx CSP lists tiles | MISSING | P2  | Admin-chosen tile URL changes the CSP `img-src`; either keep one fixed provider or render nginx CSP from the setting at start. API key stored protected (R-07). |
+| F-S05 | Login page photo upload/delete                                                                            | none                                            | MISSING | P3  |                                                                                                                                                                 |
+| F-S06 | SSO flags (enabled, auto redirect, local login)                                                           | none                                            | MISSING | P2  | F-A09                                                                                                                                                           |
+| F-S07 | Email configuration view and test email (`/email`, `/email/test`)                                         | `EmailConfigured` flag only                     | PARTIAL | P2  | Add `POST /server-settings/email/test` sending to the admin's own address; rate limit `sensitive`.                                                              |
+| F-S08 | Password policy setting                                                                                   | none                                            | MISSING | P3  | F-A13                                                                                                                                                           |
 
 ### B8. Integrations
 
-| ID | Feature | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-I01 | Strava OAuth link (BYO client id/secret), state, activities sync (hourly), gear sync, unlink with data deletion | none (file import only) | MISSING | P2 | R-12, R-14, R-28. Official REST API; `IHttpClientFactory` + Polly-style resilience via `Microsoft.Extensions.Http.Resilience`. |
-| F-I02 | Garmin Connect link with MFA, activities, gear, health sync | none | SKIP | P3 | R-13. |
-| F-I03 | RunnerUp / Gadgetbridge auto-upload | needs API key (F-A08) and the upload endpoint | MISSING | P2 | Gadgetbridge signs in with SSO + custom redirect scheme; with API keys no SSO is needed. |
-| F-I04 | Android client | `frontend/android` (Capacitor shell loading the deployed instance) | DONE | | Endurain relies on third-party clients. |
+| ID    | Feature                                                                                                         | Gravelio                                                           | Status  | Pri | Notes                                                                                                                          |
+| ----- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------- | --- | ------------------------------------------------------------------------------------------------------------------------------ |
+| F-I01 | Strava OAuth link (BYO client id/secret), state, activities sync (hourly), gear sync, unlink with data deletion | none (file import only)                                            | MISSING | P2  | R-12, R-14, R-28. Official REST API; `IHttpClientFactory` + Polly-style resilience via `Microsoft.Extensions.Http.Resilience`. |
+| F-I02 | Garmin Connect link with MFA, activities, gear, health sync                                                     | none                                                               | SKIP    | P3  | R-13.                                                                                                                          |
+| F-I03 | RunnerUp / Gadgetbridge auto-upload                                                                             | needs API key (F-A08) and the upload endpoint                      | MISSING | P2  | Gadgetbridge signs in with SSO + custom redirect scheme; with API keys no SSO is needed.                                       |
+| F-I04 | Android client                                                                                                  | `frontend/android` (Capacitor shell loading the deployed instance) | DONE    |     | Endurain relies on third-party clients.                                                                                        |
 
 ### B9. Platform and cross-cutting
 
-| ID | Feature | Gravelio | Status | Pri | Notes |
-|---|---|---|---|---|---|
-| F-P01 | Problem-details errors | FastEndpoints validation only | PARTIAL | P1 | G-03. |
-| F-P02 | Request id / correlation | OpenTelemetry trace id | DONE | | Return `traceId` in problem details. |
-| F-P03 | Background scheduler + locks | none | MISSING | P2 | R-28. |
-| F-P04 | Orphan blob sweep, retained files | none | MISSING | P3 | Only after blobs exist. |
-| F-P05 | Migrations at start | EF migrations (Development) + bundle | DONE | | |
-| F-P06 | i18n: 30 UI locales + translated emails | English only | MISSING | P3 | R-35. |
-| F-P07 | Docs site (`docs/`, mkdocs: getting started, reverse proxy, scaling, API reference, SSO, privacy) | `README.md` | MISSING | P3 | Generate API docs from `FastEndpoints.Swagger`. |
-| F-P08 | Federation / ActivityPub hooks | flags in frontend config only | SKIP | | Roadmap item in Endurain, not implemented there. |
-| F-P09 | Passkeys | none | MISSING | P3 | Roadmap in Endurain. .NET 10 Identity has passkey support built in; do it with the MFA slice. |
+| ID    | Feature                                                                                           | Gravelio                             | Status  | Pri | Notes                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------- | ------------------------------------ | ------- | --- | --------------------------------------------------------------------------------------------- |
+| F-P01 | Problem-details errors                                                                            | Microsoft problem details everywhere | DONE    |     | G-03.                                                                                         |
+| F-P02 | Request id / correlation                                                                          | OpenTelemetry trace id               | DONE    |     | Return `traceId` in problem details.                                                          |
+| F-P03 | Background scheduler + locks                                                                      | none                                 | MISSING | P2  | R-28.                                                                                         |
+| F-P04 | Orphan blob sweep, retained files                                                                 | none                                 | MISSING | P3  | Only after blobs exist.                                                                       |
+| F-P05 | Migrations at start                                                                               | EF migrations (Development) + bundle | DONE    |     |                                                                                               |
+| F-P06 | i18n: 30 UI locales + translated emails                                                           | English only                         | MISSING | P3  | R-35.                                                                                         |
+| F-P07 | Docs site (`docs/`, mkdocs: getting started, reverse proxy, scaling, API reference, SSO, privacy) | `README.md`                          | MISSING | P3  | Generate API docs from `FastEndpoints.Swagger`.                                               |
+| F-P08 | Federation / ActivityPub hooks                                                                    | flags in frontend config only        | SKIP    |     | Roadmap item in Endurain, not implemented there.                                              |
+| F-P09 | Passkeys                                                                                          | none                                 | MISSING | P3  | Roadmap in Endurain. .NET 10 Identity has passkey support built in; do it with the MFA slice. |
 
 ### B10. Frontend pages (Endurain `frontend/src/views` vs `frontend/src/app/pages`)
 
-| Endurain view | Gravelio page | Status |
-|---|---|---|
-| LoginView, SignUpView, EmailVerificationView, ResetPasswordView | login, signup, verify-email, forgot-password, reset-password | DONE |
-| HomeView (dashboard: recent activities, summary, goals) | none (activities list is the home) | MISSING |
-| ActivitiesView, ActivityDetailView | activities, activity-detail | DONE (no filters, laps, media, edit dialog for hide flags/notes) |
-| SummaryView | stats | DONE |
-| GearsView, GearDetailView | gears, gear-detail | DONE |
-| Health* (Dashboard, Weight, Steps, Sleep, Water, Fasting, Poop, RestingHeartRate) | weight, steps, sleep, water, targets, fasting, poop | PARTIAL (no dashboard, no resting HR) |
-| NotificationsView | notifications | DONE |
-| SearchView, UserProfileView | people, person | DONE |
-| ProfileSettingsView | profile (includes activity privacy section) | PARTIAL (no photo, no language list) |
-| SecuritySettingsView (MFA, sessions, API keys) | none | MISSING |
-| GoalsSettingsView | none | MISSING |
-| IntegrationsSettingsView | none | MISSING |
-| ImportSettingsView | upload on activities page; Strava import | PARTIAL |
-| IdentityProvidersSettingsView | none | MISSING |
-| UsersSettingsView, UserDetailView | users | PARTIAL (no detail view with sessions) |
-| ServerSettingsView | server-settings | PARTIAL |
-| StravaCallbackView | none | MISSING |
-| NotFoundView, MenuMobileView | `**` redirect; top nav | PARTIAL |
+| Endurain view                                                                     | Gravelio page                                                | Status                                                           |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| LoginView, SignUpView, EmailVerificationView, ResetPasswordView                   | login, signup, verify-email, forgot-password, reset-password | DONE                                                             |
+| HomeView (dashboard: recent activities, summary, goals)                           | none (activities list is the home)                           | MISSING                                                          |
+| ActivitiesView, ActivityDetailView                                                | activities, activity-detail                                  | DONE (no filters, laps, media, edit dialog for hide flags/notes) |
+| SummaryView                                                                       | stats                                                        | DONE                                                             |
+| GearsView, GearDetailView                                                         | gears, gear-detail                                           | DONE                                                             |
+| Health* (Dashboard, Weight, Steps, Sleep, Water, Fasting, Poop, RestingHeartRate) | weight, steps, sleep, water, targets, fasting, poop          | PARTIAL (no dashboard, no resting HR)                            |
+| NotificationsView                                                                 | notifications                                                | DONE                                                             |
+| SearchView, UserProfileView                                                       | people, person                                               | DONE                                                             |
+| ProfileSettingsView                                                               | profile (includes activity privacy section)                  | PARTIAL (no photo, no language list)                             |
+| SecuritySettingsView (MFA, sessions, API keys)                                    | none                                                         | MISSING                                                          |
+| GoalsSettingsView                                                                 | none                                                         | MISSING                                                          |
+| IntegrationsSettingsView                                                          | none                                                         | MISSING                                                          |
+| ImportSettingsView                                                                | upload on activities page; Strava import                     | PARTIAL                                                          |
+| IdentityProvidersSettingsView                                                     | none                                                         | MISSING                                                          |
+| UsersSettingsView, UserDetailView                                                 | users                                                        | PARTIAL (no detail view with sessions)                           |
+| ServerSettingsView                                                                | server-settings                                              | PARTIAL                                                          |
+| StravaCallbackView                                                                | none                                                         | MISSING                                                          |
+| NotFoundView, MenuMobileView                                                      | `**` redirect; top nav                                       | PARTIAL                                                          |
 
 ---
 
@@ -334,9 +334,9 @@ Read from code at `785c5be`. Each is small; none was fixed by this note.
 
 **G-01 `DateTime.UtcNow` used twice** (`Activities/Stats/ActivityStats.cs:42`, `Activities/Stats/ActivityStatsRequest.cs:28`) against the `TimeProvider` rule. The validator is created once, so its `UtcNow.Year + 1` bound is frozen at first use and is stale after New Year until restart. Fix: inject `TimeProvider`; test with a fake clock.
 
-**G-02 Body size limit is global.** `Program.cs:43-44` sets Kestrel `MaxRequestBodySize` and multipart limit to the largest upload (~50 MB) for every route, including anonymous `POST /auth/login`. Anyone can make the server accept and parse 50 MB JSON bodies on the login route, limited only by the login rate limit. Fix: default 1 MB for JSON, and set the large limit only on the upload endpoints (`Options(o => o.WithMetadata(new RequestSizeLimitAttribute(...)))` plus `DisableRequestSizeLimit`-free per-endpoint form limits).
+**G-02 (fixed) Body size limit was global.** `Program.cs:43-44` sets Kestrel `MaxRequestBodySize` and multipart limit to the largest upload (~50 MB) for every route, including anonymous `POST /auth/login`. Anyone can make the server accept and parse 50 MB JSON bodies on the login route, limited only by the login rate limit. Fix: default 1 MB for JSON, and set the large limit only on the upload endpoints (`Options(o => o.WithMetadata(new RequestSizeLimitAttribute(...)))` plus `DisableRequestSizeLimit`-free per-endpoint form limits).
 
-**G-03 No handler for unhandled exceptions.** `Program.cs` only has `Errors.UseProblemDetails()` (validation). In Production an exception returns an empty 500 and no trace id. Fix: `AddProblemDetails()` + `UseExceptionHandler()` (or `UseDefaultExceptionHandler()`), add a test that forces an error.
+**G-03 (fixed) No handler for unhandled exceptions.** `Program.cs` only has `Errors.UseProblemDetails()` (validation). In Production an exception returns an empty 500 and no trace id. Fix: `AddProblemDetails()` + `UseExceptionHandler()` (or `UseDefaultExceptionHandler()`), add a test that forces an error.
 
 **G-04 Signup approval and deactivation share one flag.** `Auth/Signup/SignupEndpoint.cs:57` sets `Active = !RequireAdminApproval`. A user waiting for approval looks the same as a banned user, and no admin notification or approve action exists (F-A11).
 

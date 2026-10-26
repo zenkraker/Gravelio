@@ -4,11 +4,13 @@ using FastEndpoints;
 using FastEndpoints.Swagger;
 using Gravelio.Api.Activities;
 using Gravelio.Api.Auth;
+using Gravelio.Api.Common;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -40,8 +42,9 @@ builder.Services.AddGravelioAuth();
 builder.Services.AddOptions<EmailOptions>().BindConfiguration("Email").ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s => s.Title = "Gravelio API");
-builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes));
-builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Math.Max(UploadActivityEndpoint.MaxUploadBytes, ImportStravaEndpoint.MaxUploadBytes) + 1024 * 1024);
+// Every error body, including unhandled exceptions and bare 401/404/429 responses, is ASP.NET Core's own problem details.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -71,6 +74,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseRouting();
 // Authenticated API responses must never be reused from the browser cache.
 app.Use(async (ctx, next) =>
@@ -88,7 +93,16 @@ app.UseFastEndpoints(c =>
     c.Endpoints.RoutePrefix = "api/v1";
     c.Serializer.Options.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     c.Serializer.Options.DictionaryKeyPolicy = null;
-    c.Errors.UseProblemDetails();
+    // Validation and ThrowError failures leave as ASP.NET Core's HttpValidationProblemDetails, not FastEndpoints' own error type.
+    c.Errors.ResponseBuilder = (failures, ctx, status) => new HttpValidationProblemDetails(failures
+        .GroupBy(f => JsonNamingPolicy.SnakeCaseLower.ConvertName(f.PropertyName))
+        .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).ToArray()))
+    {
+        Status = status,
+        Title = ReasonPhrases.GetReasonPhrase(status),
+        Instance = ctx.Request.Path,
+        Extensions = { ["traceId"] = System.Diagnostics.Activity.Current?.Id ?? ctx.TraceIdentifier },
+    };
 }).UseSwaggerGen();
 
 app.MapGet("/api/v1/health", () => Results.Ok(new { status = "ok" }));

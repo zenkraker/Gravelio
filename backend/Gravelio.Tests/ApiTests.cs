@@ -201,6 +201,30 @@ public class ApiTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Every_error_is_the_framework_problem_details()
+    {
+        var anonymous = await api.CreateClient().GetAsync("/api/v1/users/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        Assert.Equal("application/problem+json", anonymous.Content.Headers.ContentType?.MediaType);
+
+        var admin = await api.LoginAsync();
+        var invalid = await admin.Http.PostAsJsonAsync("/api/v1/auth/login", new { Username = "", Password = "" }, ApiClient.Json);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("application/problem+json", invalid.Content.Headers.ContentType?.MediaType);
+        var body = await invalid.Content.ReadFromJsonAsync<JsonElement>(ApiClient.Json);
+        Assert.Equal(400, body.GetProperty("status").GetInt32());
+        Assert.Equal(JsonValueKind.Array, body.GetProperty("errors").GetProperty("username").ValueKind);
+        Assert.False(string.IsNullOrEmpty(body.GetProperty("traceId").GetString()));
+
+        await api.CreateUserAsync(admin, "kira");
+        var taken = await admin.Http.PostAsJsonAsync("/api/v1/users",
+            new { Name = "x", Username = "kira", Email = "kira2@example.com", AccessType = "regular", Active = true, Password = "Str0ng-pass!" }, ApiClient.Json);
+        var conflict = await taken.Content.ReadFromJsonAsync<JsonElement>(ApiClient.Json);
+        Assert.Equal(409, conflict.GetProperty("status").GetInt32());
+        Assert.Equal("Conflict", conflict.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task A_deactivated_user_gets_the_same_401_as_a_wrong_password()
     {
         var admin = await api.LoginAsync();

@@ -1,10 +1,23 @@
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Data;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Gravelio.Api;
+
+/// Body and multipart limits for one upload endpoint. Pass it to <c>Options(o => o.WithMetadata(UploadLimits.For(max)))</c> next to
+/// <c>AllowFileUploads()</c>; routes that take no upload carry no such setting and keep the framework defaults.
+public static class UploadLimits
+{
+    // Multipart boundaries and form fields add a little to the file itself.
+    const long Overhead = 1024 * 1024;
+
+    public static object[] For(long maxFileBytes) =>
+        [new RequestSizeLimitAttribute(maxFileBytes + Overhead), new RequestFormLimitsAttribute { MultipartBodyLengthLimit = maxFileBytes + Overhead }];
+}
 
 /// A request that carries only the id from the route.
 public sealed record IdRequest(int Id);

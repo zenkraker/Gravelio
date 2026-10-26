@@ -132,17 +132,20 @@ export const StreamType = {
   Temperature: 8,
 } as const;
 
+/** ASP.NET Core's HttpValidationProblemDetails: field name -> messages. */
 export interface Problem {
   title?: string;
   detail?: string;
-  errors?: { name: string; reason: string }[];
+  errors?: Record<string, string[]>;
 }
 
 /** Best human-readable message from an RFC 7807 problem response. */
 export function problemMessage(err: unknown): string {
   const problem = (err as { error?: Problem })?.error;
-  const reasons = problem?.errors?.map((e) => e.reason).filter(Boolean);
-  return reasons?.length
+  const reasons = Object.values(problem?.errors ?? {})
+    .flat()
+    .filter(Boolean);
+  return reasons.length
     ? reasons.join(' ')
     : (problem?.detail ?? problem?.title ?? $localize`Something went wrong`);
 }

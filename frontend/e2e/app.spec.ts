@@ -433,7 +433,7 @@ test('follow a user, accept the request, and see their public activity in the fe
   await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();
   await expectAccessible(page);
   await page.getByRole('link', { name: 'Activities', exact: true }).click();
-  await page.getByRole('button', { name: 'Following', exact: true }).click();
+  await page.getByRole('radio', { name: 'Following', exact: true }).click();
   await expect(page.getByRole('link', { name: title })).toBeVisible();
   await expectAccessible(page);
 });

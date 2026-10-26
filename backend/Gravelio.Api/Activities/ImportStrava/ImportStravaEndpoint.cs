@@ -17,6 +17,7 @@ public sealed class ImportStravaEndpoint(AppDb db, UserManager<User> users, Time
     {
         Post("/activities/import/strava");
         AllowFileUploads();
+        Options(o => o.WithMetadata(UploadLimits.For(MaxUploadBytes)));
     }
 
     public override async Task HandleAsync(ImportStravaRequest req, CancellationToken ct)
