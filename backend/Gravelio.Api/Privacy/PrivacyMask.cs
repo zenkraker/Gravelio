@@ -22,6 +22,10 @@ public static class PrivacyMask
             StartTime = settings.HideActivityStartTime ? null : activity.StartTime,
             EndTime = settings.HideActivityStartTime ? null : activity.EndTime,
             GearId = settings.HideActivityGear ? null : activity.GearId,
+            // A place name is as revealing as the map it comes from.
+            City = settings.HideActivityLocation || settings.HideActivityMap ? null : activity.City,
+            Town = settings.HideActivityLocation || settings.HideActivityMap ? null : activity.Town,
+            Country = settings.HideActivityLocation || settings.HideActivityMap ? null : activity.Country,
             AverageHr = settings.HideActivityHr ? null : activity.AverageHr,
             MaxHr = settings.HideActivityHr ? null : activity.MaxHr,
             AveragePower = settings.HideActivityPower ? null : activity.AveragePower,

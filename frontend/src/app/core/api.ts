@@ -45,6 +45,9 @@ export interface Activity {
   start_time: string | null;
   end_time: string | null;
   timezone: string | null;
+  city: string | null;
+  town: string | null;
+  country: string | null;
   total_elapsed_time: number;
   total_timer_time: number;
   elevation_gain: number | null;

@@ -44,6 +44,13 @@ services:
       RateLimits__ReadsPerMinute: ${RATE_LIMIT_READS_PER_MINUTE:-120}
       RateLimits__WritesPerMinute: ${RATE_LIMIT_WRITES_PER_MINUTE:-30}
       RateLimits__UploadsPerMinute: ${RATE_LIMIT_UPLOADS_PER_MINUTE:-20}
+      # Looks up the place name of activities in the background. Off by default: it sends each activity's first GPS position to the
+      # geocoding server (the public OpenStreetMap Nominatim unless Geocoding__Host points elsewhere).
+      Geocoding__Enabled: ${GEOCODING_ENABLED:-false}
+      Geocoding__Host: ${GEOCODING_HOST:-}
+      Geocoding__UserAgent: ${GEOCODING_USER_AGENT:-Gravelio self-hosted (+https://github.com/zenkraker/Gravelio)}
+      # Outgoing calls refuse private addresses and plain http. Allow them only to use a server on your own network (e.g. your own Nominatim).
+      Outbound__AllowPrivateNetworks: ${OUTBOUND_ALLOW_PRIVATE_NETWORKS:-false}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # Optional outgoing email (password reset). Leave EMAIL_HOST/EMAIL_FROM unset to disable email.

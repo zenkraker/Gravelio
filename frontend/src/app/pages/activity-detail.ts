@@ -52,7 +52,12 @@ import { ActivityView } from '../components/activity-view';
       <header>
         <div>
           <h1>{{ a.name }}</h1>
-          <p>{{ types.name(a.activity_type) }} · {{ when(a.start_time, a.timezone) }}</p>
+          <p>
+            {{ types.name(a.activity_type) }} · {{ when(a.start_time, a.timezone) }}
+            @if (place(a); as p) {
+              · {{ p }}
+            }
+          </p>
           @if (!isOwner()) {
             <p>
               <span i18n>Shared by</span>
@@ -163,6 +168,10 @@ export class ActivityDetail {
   private readonly streams = httpResource<ActivityStream[]>(
     () => `/api/v1/activities/${this.id()}/streams`,
   );
+
+  protected place(a: Activity): string {
+    return [a.town ?? a.city, a.country].filter(Boolean).join(', ');
+  }
 
   protected readonly units = computed(() => this.auth.user()?.units ?? 'metric');
   protected readonly when = formatDateTime;

@@ -37,6 +37,10 @@ public class Activity
     public string? Description { get; set; }
     public int Distance { get; set; }
     public int ActivityType { get; set; }
+    /// Where the route started, looked up in the background; follows the owner's location privacy like the map.
+    public string? City { get; set; }
+    public string? Town { get; set; }
+    public string? Country { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string? Timezone { get; set; }
@@ -247,6 +251,13 @@ public class UserPhoto
     public int UserId { get; set; }
     public required byte[] Data { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+/// The last time a place lookup was tried for an activity, so one that found nothing is not retried on every pass.
+public class ActivityLocationAttempt
+{
+    public int ActivityId { get; set; }
+    public DateTime AttemptedAt { get; set; }
 }
 
 public class ApiKey
@@ -481,6 +492,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<UserPhoto> UserPhotos => Set<UserPhoto>();
+    public DbSet<ActivityLocationAttempt> ActivityLocationAttempts => Set<ActivityLocationAttempt>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
@@ -557,6 +569,11 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<ApiKey>().HasOne(k => k.User).WithMany().HasForeignKey(k => k.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();
         b.Entity<ApiKey>().HasIndex(k => k.UserId);
+        b.Entity<ActivityLocationAttempt>().HasKey(t => t.ActivityId);
+        b.Entity<ActivityLocationAttempt>().HasOne<Activity>().WithOne().HasForeignKey<ActivityLocationAttempt>(t => t.ActivityId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Activity>().Property(a => a.City).HasMaxLength(250);
+        b.Entity<Activity>().Property(a => a.Town).HasMaxLength(250);
+        b.Entity<Activity>().Property(a => a.Country).HasMaxLength(250);
         b.Entity<UserPhoto>().HasKey(p => p.UserId);
         b.Entity<UserPhoto>().HasOne<User>().WithOne().HasForeignKey<UserPhoto>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UserSession>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);

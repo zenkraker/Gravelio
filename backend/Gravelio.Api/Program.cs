@@ -6,6 +6,7 @@ using Gravelio.Api.Auth;
 using Gravelio.Api.Common;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
+using Gravelio.Api.Geocoding;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
@@ -46,6 +47,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 builder.Services.AddExceptionHandler<ConcurrencyExceptionHandler>();
 builder.Services.AddGravelioRateLimiting();
+// Background jobs. Geocoding is opt-in because it sends activity positions to another server.
+builder.Services.AddOptions<GeocodingOptions>().BindConfiguration("Geocoding").ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddGuardedHttpClient(GeocodingJob.HttpClientName);
+builder.Services.AddSingleton<GeocodingJob>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GeocodingJob>());
 
 // Telemetry is always collected; it only leaves the process when an OTLP endpoint is configured.
 builder.Logging.AddOpenTelemetry(o => o.IncludeFormattedMessage = true);

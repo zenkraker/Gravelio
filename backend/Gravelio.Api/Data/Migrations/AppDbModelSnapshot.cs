@@ -48,6 +48,14 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<int?>("Calories")
                         .HasColumnType("integer");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -113,6 +121,10 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.Property<double>("TotalTimerTime")
                         .HasColumnType("double precision");
+
+                    b.Property<string>("Town")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<string>("TrackerManufacturer")
                         .HasColumnType("text");
@@ -233,6 +245,19 @@ namespace Gravelio.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("ActivityLaps");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.ActivityLocationAttempt", b =>
+                {
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AttemptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ActivityId");
+
+                    b.ToTable("ActivityLocationAttempts");
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.ActivityStream", b =>
@@ -1406,6 +1431,15 @@ namespace Gravelio.Api.Data.Migrations
                     b.HasOne("Gravelio.Api.Data.Activity", null)
                         .WithMany("Laps")
                         .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.ActivityLocationAttempt", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.Activity", null)
+                        .WithOne()
+                        .HasForeignKey("Gravelio.Api.Data.ActivityLocationAttempt", "ActivityId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

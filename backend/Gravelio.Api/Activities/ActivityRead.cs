@@ -15,17 +15,18 @@ public sealed record ActivityRead(int Id, string? Name, string? Description, int
     string? Timezone, double TotalElapsedTime, double TotalTimerTime, int? ElevationGain, int? ElevationLoss, double? Pace,
     double? AverageSpeed, double? MaxSpeed, int? AveragePower, int? MaxPower, int? NormalizedPower, int? AverageHr, int? MaxHr,
     int? AverageCad, int? MaxCad, int? Calories, int Visibility, string? TrackerManufacturer, string? TrackerModel, DateTime CreatedAt, int? GearId,
-    PersonRead Owner, [property: JsonIgnore] HiddenDetails? HiddenOverride, bool IsHidden = false)
+    PersonRead Owner, [property: JsonIgnore] HiddenDetails? HiddenOverride, bool IsHidden = false,
+    string? City = null, string? Town = null, string? Country = null)
 {
     // An expression so EF Core can translate it and select only these columns.
     public static readonly Expression<Func<Activity, ActivityRead>> Projection = a => new ActivityRead(a.Id, a.Name, a.Description, a.Distance,
         a.ActivityType, a.StartTime, a.EndTime, a.Timezone, a.TotalElapsedTime, a.TotalTimerTime, a.ElevationGain, a.ElevationLoss, a.Pace,
         a.AverageSpeed, a.MaxSpeed, a.AveragePower, a.MaxPower, a.NormalizedPower, a.AverageHr, a.MaxHr, a.AverageCad, a.MaxCad, a.Calories,
         a.Visibility, a.TrackerManufacturer, a.TrackerModel, a.CreatedAt, a.GearId,
-        new PersonRead(a.User.Id, a.User.Name, a.User.UserName!, a.User.City, a.User.HasPhoto), a.HiddenDetails, a.IsHidden);
+        new PersonRead(a.User.Id, a.User.Name, a.User.UserName!, a.User.City, a.User.HasPhoto), a.HiddenDetails, a.IsHidden, a.City, a.Town, a.Country);
 
     public static ActivityRead From(Activity a, PersonRead owner) => new(a.Id, a.Name, a.Description, a.Distance, a.ActivityType, a.StartTime,
         a.EndTime, a.Timezone, a.TotalElapsedTime, a.TotalTimerTime, a.ElevationGain, a.ElevationLoss, a.Pace, a.AverageSpeed, a.MaxSpeed,
         a.AveragePower, a.MaxPower, a.NormalizedPower, a.AverageHr, a.MaxHr, a.AverageCad, a.MaxCad, a.Calories, a.Visibility,
-        a.TrackerManufacturer, a.TrackerModel, a.CreatedAt, a.GearId, owner, a.HiddenDetails, a.IsHidden);
+        a.TrackerManufacturer, a.TrackerModel, a.CreatedAt, a.GearId, owner, a.HiddenDetails, a.IsHidden, a.City, a.Town, a.Country);
 }
