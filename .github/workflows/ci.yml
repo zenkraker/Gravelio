@@ -5,29 +5,52 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Each job finishes in under 3 minutes; the per-job cap stops a hung step from burning hours.
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      # ~/.nuget/packages is the restore cache; Directory.Packages.props and the csproj files decide the key.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
       - run: dotnet format Gravelio.slnx --verify-no-changes
       # The integration tests start PostgreSQL with Testcontainers, using the runner's Docker.
       - run: dotnet test Gravelio.slnx
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npm install --global pnpm@12 # pnpm then switches to the version pinned in package.json
+      # pnpm hardlinks node_modules from this store, so a cache hit skips the downloads.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prettier --check .
       - run: pnpm exec ng lint
@@ -35,15 +58,23 @@ jobs:
       - run: pnpm build
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_ADMIN_PASSWORD: Ci-Admin-Passw0rd!
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+      - run: npm install --global pnpm@12 # pnpm then switches to the version pinned in package.json
+      # pnpm hardlinks node_modules from this store, so a cache hit skips the downloads.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
       - name: Start the stack
         run: |
           printf 'DB_PASSWORD=%s\nADMIN_PASSWORD=%s\nSECURE_COOKIES=false\nLOGIN_ATTEMPTS_PER_MINUTE=1000\n' "$(openssl rand -hex 16)" "$E2E_ADMIN_PASSWORD" > .env
@@ -51,9 +82,19 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://localhost:8080/api/v1/health && exit 0; sleep 2; done
           docker compose logs
           exit 1
-      - run: npm install --global pnpm@12
-      - working-directory: frontend
+      - name: Run the e2e suite
+        working-directory: frontend
         run: |
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
           pnpm e2e
+      # The report and failure traces are the only useful thing to keep from a red run.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
+          if-no-files-found: ignore
