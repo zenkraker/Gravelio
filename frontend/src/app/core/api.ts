@@ -227,6 +227,25 @@ export interface PoopEntry {
   source: string | null;
 }
 
+export interface ServerSettings {
+  signup_enabled: boolean;
+  signup_require_email_verification: boolean;
+  signup_require_admin_approval: boolean;
+}
+
+export interface ServerSettingsRead extends ServerSettings {
+  email_configured: boolean;
+}
+
+export interface PublicSettings {
+  signup_enabled: boolean;
+}
+
+export interface SignupResult {
+  pending_email_verification: boolean;
+  pending_approval: boolean;
+}
+
 export interface Notification {
   id: number;
   type: number;

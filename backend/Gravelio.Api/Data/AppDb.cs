@@ -162,6 +162,17 @@ public class PasswordResetToken
     public DateTime CreatedAt { get; set; }
 }
 
+/// Instance-wide settings. Exactly one row exists once anything has been saved; a missing row means all defaults.
+public class ServerSettings
+{
+    public const int SingletonId = 1;
+
+    public int Id { get; set; } = SingletonId;
+    public bool SignupEnabled { get; set; }
+    public bool SignupRequireEmailVerification { get; set; }
+    public bool SignupRequireAdminApproval { get; set; }
+}
+
 /// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
 public class UserPrivacySettings
 {
@@ -346,6 +357,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -406,6 +418,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
         b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
+        // A hand-managed singleton row: the app assigns Id 1 rather than the database.
+        b.Entity<ServerSettings>().Property(s => s.Id).ValueGeneratedNever();
         b.Entity<Follow>().ToTable(t =>
         {
             t.HasCheckConstraint("CK_Follows_NotSelf", "\"FollowerId\" <> \"FolloweeId\"");

@@ -745,6 +745,25 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("PasswordResetTokens");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.ServerSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SignupEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SignupRequireAdminApproval")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SignupRequireEmailVerification")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ServerSettings");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.User", b =>
                 {
                     b.Property<int>("Id")

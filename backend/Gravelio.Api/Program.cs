@@ -112,6 +112,7 @@ static async Task SeedAdmin(IServiceProvider services, ILogger logger)
         Name = "Administrator",
         UserName = "admin",
         Email = config.Email ?? "admin@example.com",
+        EmailConfirmed = true,
         CreatedAt = services.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime,
     };
     var result = await users.CreateAsync(admin, password);

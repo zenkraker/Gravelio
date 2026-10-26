@@ -32,6 +32,8 @@ public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endp
         user.Active = req.Active;
         var result = await users.SetUserNameAsync(user, req.Username);
         if (result.Succeeded) result = await users.SetEmailAsync(user, req.Email);
+        // SetEmailAsync clears confirmation even for an unchanged address; an admin sets the address, so it is confirmed.
+        if (result.Succeeded) user.EmailConfirmed = true;
         if (result.Succeeded && makeAdmin != wasAdmin)
             result = makeAdmin ? await users.AddToRoleAsync(user, AppRoles.Admin) : await users.RemoveFromRoleAsync(user, AppRoles.Admin);
         if (result.Succeeded && req.Password is not null)

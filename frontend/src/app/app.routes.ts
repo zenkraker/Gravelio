@@ -18,6 +18,16 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/reset-password').then((m) => m.ResetPassword),
   },
   {
+    path: 'signup',
+    title: 'Create an account',
+    loadComponent: () => import('./pages/signup').then((m) => m.Signup),
+  },
+  {
+    path: 'verify-email',
+    title: 'Confirm your email',
+    loadComponent: () => import('./pages/verify-email').then((m) => m.VerifyEmail),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./shell').then((m) => m.Shell),
@@ -108,6 +118,12 @@ export const routes: Routes = [
         title: 'Users',
         canActivate: [adminGuard],
         loadComponent: () => import('./pages/users').then((m) => m.Users),
+      },
+      {
+        path: 'server-settings',
+        title: 'Server settings',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./pages/server-settings').then((m) => m.ServerSettingsPage),
       },
     ],
   },

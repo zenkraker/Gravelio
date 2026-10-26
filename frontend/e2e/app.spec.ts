@@ -127,6 +127,10 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   await page.getByRole('link', { name: 'Users' }).click();
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
   await expectAccessible(page);
+
+  await page.getByRole('link', { name: 'Server settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Server settings', level: 1 })).toBeVisible();
+  await expectAccessible(page);
 });
 
 test('add gear, give it a component, attach it to an activity; save the profile', async ({
@@ -321,6 +325,35 @@ test('log and delete a bowel movement', async ({ page }) => {
   await page.getByRole('button', { name: /Delete the bowel movement from/ }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('row', { name: /Feb 19, 2026/ })).toHaveCount(0);
+});
+
+test('an admin can enable sign-up and a new account can sign in', async ({ page }) => {
+  const username = `e2e.signup${Date.now()}`;
+
+  await signIn(page);
+  await page.getByRole('link', { name: 'Server settings' }).click();
+  await page.getByRole('checkbox', { name: 'Allow self sign-up' }).check();
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect(page.getByText('Server settings saved')).toBeVisible();
+  await expectAccessible(page);
+  await signOut(page);
+
+  await page.getByRole('link', { name: 'Create an account' }).click();
+  await expect(page.getByRole('heading', { name: 'Create an account' })).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).fill('E2E Signup');
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Email').fill(`${username}@example.com`);
+  await page.getByLabel('Password', { exact: true }).fill('Signup-Pass-1!');
+  await page.getByLabel('Repeat password').fill('Signup-Pass-1!');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByText('Account created. You can sign in now.')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('link', { name: 'Back to sign in' }).click();
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Password').fill('Signup-Pass-1!');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
 });
 
 test('follow a user, accept the request, and see their public activity in the feed', async ({

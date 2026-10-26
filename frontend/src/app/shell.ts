@@ -88,6 +88,14 @@ import { Notifications } from './core/notifications';
             i18n
             >Users</a
           >
+          <a
+            mat-button
+            routerLink="/server-settings"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            i18n
+            >Server settings</a
+          >
         }
       </nav>
       <span class="spacer"></span>

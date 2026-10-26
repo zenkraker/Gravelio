@@ -16,7 +16,7 @@ public sealed class CreateUserEndpoint(UserManager<User> users, TimeProvider tim
     public override async Task HandleAsync(CreateUserRequest req, CancellationToken ct)
     {
         if (req.Password is null) ThrowError(r => r.Password, "Password is required", StatusCodes.Status400BadRequest);
-        var user = new User { Name = req.Name, UserName = req.Username, Email = req.Email, Active = req.Active, CreatedAt = time.GetUtcNow().UtcDateTime };
+        var user = new User { Name = req.Name, UserName = req.Username, Email = req.Email, Active = req.Active, EmailConfirmed = true, CreatedAt = time.GetUtcNow().UtcDateTime };
         var result = await users.CreateAsync(user, req.Password);
         if (result.Succeeded && req.AccessType == AppRoles.Admin) result = await users.AddToRoleAsync(user, AppRoles.Admin);
         if (!result.Succeeded) ThrowError(UserRules.Describe(result), UserRules.StatusOf(result));

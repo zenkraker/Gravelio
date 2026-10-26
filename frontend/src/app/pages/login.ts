@@ -1,3 +1,4 @@
+import { httpResource } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormField, form, required, submit } from '@angular/forms/signals';
@@ -6,7 +7,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatInputModule } from '@angular/material/input';
-import { problemMessage } from '../core/api';
+import { problemMessage, PublicSettings } from '../core/api';
 import { AuthService } from '../core/auth';
 
 @Component({
@@ -49,6 +50,9 @@ import { AuthService } from '../core/auth';
             </button>
           </form>
           <a mat-button routerLink="/forgot-password" i18n>Forgot your password?</a>
+          @if (settings.value()?.signup_enabled) {
+            <a mat-button routerLink="/signup" i18n>Create an account</a>
+          }
         </mat-card-content>
       </mat-card>
     </main>
@@ -80,6 +84,10 @@ export class Login {
   private auth = inject(AuthService);
   private router = inject(Router);
 
+  // Whether to offer "Create an account"; anonymous visitors may read just this.
+  protected readonly settings = httpResource<PublicSettings>(
+    () => '/api/v1/server-settings/public',
+  );
   protected readonly error = signal('');
   private readonly model = signal({ username: '', password: '' });
   protected readonly f = form(this.model, (p) => {
