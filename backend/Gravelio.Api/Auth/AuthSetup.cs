@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using Gravelio.Api.ApiKeys;
 using Gravelio.Api.Data;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
@@ -62,6 +64,7 @@ public static class ClaimsPrincipalExtensions
 
 public static class AuthSetup
 {
+    public const string AuthCookie = "gravelio_auth";
     public const string XsrfCookie = "XSRF-TOKEN";
     public const string XsrfHeader = "X-XSRF-TOKEN";
 
@@ -84,7 +87,9 @@ public static class AuthSetup
             .AddPasswordValidator<AdminPasswordValidator>()
             // Needed to generate the short-lived Identity token behind a password reset.
             .AddDefaultTokenProviders();
-        services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
+        var authentication = services.AddAuthentication(IdentityConstants.ApplicationScheme);
+        authentication.AddIdentityCookies();
+        authentication.AddScheme<AuthenticationSchemeOptions, ApiKeyHandler>(ApiKeyAuth.Scheme, null);
         services.AddAuthorization();
 
         // Revoke cookies on password, role or deactivation changes at the next request, not after the default 30 minutes.
@@ -93,7 +98,7 @@ public static class AuthSetup
         services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
             .Configure<IOptions<AuthOptions>>((o, auth) =>
             {
-                o.Cookie.Name = "gravelio_auth";
+                o.Cookie.Name = AuthCookie;
                 o.Cookie.HttpOnly = true;
                 o.Cookie.SameSite = SameSiteMode.Strict;
                 o.Cookie.SecurePolicy = auth.Value.SecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
@@ -125,11 +130,17 @@ public static class AuthSetup
                 Secure = ctx.Request.IsHttps,
             });
         }
-        else if (!await antiforgery.IsRequestValidAsync(ctx))
+        // An uploader with a key and no cookie has no browser session to forge; a request that has the cookie must still prove itself.
+        else if (!(AcceptsKeyInsteadOfToken(ctx)) && !await antiforgery.IsRequestValidAsync(ctx))
         {
             ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
         await next(ctx);
     });
+
+    static bool AcceptsKeyInsteadOfToken(HttpContext ctx) =>
+        ctx.GetEndpoint()?.Metadata.GetMetadata<AllowsApiKey>() is not null
+        && ctx.Request.Headers.ContainsKey(ApiKeyAuth.Header)
+        && !ctx.Request.Cookies.ContainsKey(AuthCookie);
 }

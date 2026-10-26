@@ -484,7 +484,7 @@ test('turn on two-factor authentication, sign in with a code, and use a recovery
 
   await page.getByRole('button', { name: 'Set up' }).click();
   const secret = (await page.locator('code.key').innerText()).replace(/\s/g, '');
-  await page.getByLabel('Current password').fill(password);
+  await page.getByLabel('Current password').first().fill(password); // the API key form below has one too
   await page.getByLabel('Code from the app').fill(totp(secret));
   await expectAccessible(page);
   await page.getByRole('button', { name: 'Turn on' }).click();
@@ -746,6 +746,63 @@ test('edit an activity: name, private notes and what to hide', async ({ page }) 
   await expect(page.getByRole('checkbox', { name: 'Heart rate' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Map' })).not.toBeChecked();
   await expectAccessible(page);
+});
+
+test('make an API key, upload with it, then revoke and delete it', async ({ page, request }) => {
+  const username = `e2e.keys${Date.now()}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const created = await page.request.post('/api/v1/users', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    data: {
+      name: 'E2E Keys',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+  await signOut(page);
+
+  await signIn(page, username, password);
+  await page.goto('/security');
+  await expect(page.getByRole('heading', { name: 'API keys' })).toBeVisible();
+  await expect(page.getByText('No API keys yet.')).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByLabel('Name', { exact: true }).fill('Watch sync');
+  await page.getByLabel('Current password').last().fill(password);
+  await page.getByRole('button', { name: 'Make key' }).click();
+  const key = (await page.locator('code.secret').innerText()).trim();
+  expect(key).toMatch(/^gravelio_/);
+  await expect(page.getByRole('row', { name: /Watch sync/ })).toContainText('Active');
+  await expectAccessible(page);
+  await page.getByRole('button', { name: 'I have copied it' }).click();
+
+  // A program with only the key can upload, with no cookie and no antiforgery token.
+  const upload = (days: number) =>
+    request.post('/api/v1/activities/upload', {
+      headers: { 'X-API-Key': key },
+      multipart: {
+        file: {
+          name: 'sync.gpx',
+          mimeType: 'application/gpx+xml',
+          buffer: gpx('E2E key upload', 'running', days),
+        },
+      },
+    });
+  expect((await upload(5)).status()).toBe(200);
+
+  await page.getByRole('button', { name: 'Revoke key Watch sync' }).click();
+  await expect(page.getByRole('row', { name: /Watch sync/ })).toContainText('Revoked');
+  expect((await upload(6)).status()).toBe(401);
+
+  await page.getByRole('button', { name: 'Delete key Watch sync' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('No API keys yet.')).toBeVisible();
 });
 
 test('sign out ends the session', async ({ page }) => {

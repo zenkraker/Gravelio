@@ -182,6 +182,23 @@ public class Goal
     public int Target { get; set; }
 }
 
+/// A key for programs that upload activities for a user without a sign-in (a watch app, a sync script). Only the SHA-256 hash is
+/// stored, so a leaked database cannot be used to upload; the key itself is shown once, when it is made.
+public class ApiKey
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public required string Name { get; set; }
+    /// The first characters of the key, so a person can tell their keys apart.
+    public required string Prefix { get; set; }
+    public required string KeyHash { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+    public DateTime? RevokedAt { get; set; }
+}
+
 /// An authenticator code that has already signed someone in or confirmed a change. A code stays valid for a couple of minutes,
 /// and RFC 6238 §5.2 forbids accepting it twice; the unique index also rejects two parallel submissions.
 public class UsedTotpCode
@@ -395,6 +412,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
@@ -464,6 +482,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
         b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
+        b.Entity<ApiKey>().HasOne(k => k.User).WithMany().HasForeignKey(k => k.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();
+        b.Entity<ApiKey>().HasIndex(k => k.UserId);
         b.Entity<Goal>().HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Goal>().HasIndex(g => new { g.UserId, g.Interval, g.ActivityGroup, g.Metric }).IsUnique();
         b.Entity<Goal>().Property(g => g.Interval).HasMaxLength(20);

@@ -377,3 +377,23 @@ export interface ActivityPrivateDetails {
   workout_rpe: number | null;
   hidden_details: string[] | null;
 }
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  prefix: string;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** The response that makes a key; `key` is shown once and never returned again. */
+export interface CreatedApiKey {
+  id: number;
+  name: string;
+  key: string;
+  prefix: string;
+  created_at: string;
+  expires_at: string | null;
+}
