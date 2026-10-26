@@ -137,6 +137,20 @@ public static class FollowStatuses
     public const string Pending = "pending", Accepted = "accepted";
 }
 
+/// A message for one user about something that happened elsewhere. The actor's name is a snapshot, so the row survives
+/// that account being deleted and needs no join to render.
+public class Notification
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public int Type { get; set; }
+    public int ActorId { get; set; }
+    public required string ActorName { get; set; }
+    public bool Read { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 /// Per-user activity privacy. Owners always see everything; these flags mask other viewers.
 public class UserPrivacySettings
 {
@@ -319,6 +333,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<HealthFasting> HealthFastings => Set<HealthFasting>();
     public DbSet<HealthPoop> HealthPoops => Set<HealthPoop>();
     public DbSet<Follow> Follows => Set<Follow>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -373,6 +388,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Follow>().HasIndex(f => new { f.FollowerId, f.FolloweeId }).IsUnique();
         b.Entity<Follow>().HasIndex(f => f.FolloweeId);
         b.Entity<Follow>().Property(f => f.Status).HasMaxLength(20);
+        b.Entity<Notification>().HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Notification>().HasIndex(n => new { n.UserId, n.CreatedAt });
+        b.Entity<Notification>().HasIndex(n => new { n.UserId, n.Read });
         b.Entity<Follow>().ToTable(t =>
         {
             t.HasCheckConstraint("CK_Follows_NotSelf", "\"FollowerId\" <> \"FolloweeId\"");

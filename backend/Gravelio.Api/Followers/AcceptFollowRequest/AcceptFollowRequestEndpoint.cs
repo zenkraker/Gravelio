@@ -1,11 +1,12 @@
 using FastEndpoints;
 using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
+using Gravelio.Api.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Followers;
 
-public sealed class AcceptFollowRequestEndpoint(AppDb db) : Endpoint<AcceptFollowRequest, FollowRead>
+public sealed class AcceptFollowRequestEndpoint(AppDb db, TimeProvider time, ILogger<AcceptFollowRequestEndpoint> log) : Endpoint<AcceptFollowRequest, FollowRead>
 {
     public override void Configure() => Post("/follow-requests/{followerId:int}/accept");
 
@@ -23,6 +24,9 @@ public sealed class AcceptFollowRequestEndpoint(AppDb db) : Endpoint<AcceptFollo
         }
         var read = await db.Follows.AsNoTracking().Where(f => f.FollowerId == req.FollowerId && f.FolloweeId == me)
             .ToRead().FirstAsync(ct);
+        NotificationWriter.Add(db, req.FollowerId, NotificationTypes.NewFollowerRequestAccepted, me, read.Followee.Name,
+            time.GetUtcNow().UtcDateTime);
+        await NotificationWriter.TrySaveAsync(db, log, ct);
         await Send.OkAsync(read, ct);
     }
 }

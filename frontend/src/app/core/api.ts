@@ -227,6 +227,19 @@ export interface PoopEntry {
   source: string | null;
 }
 
+export interface Notification {
+  id: number;
+  type: number;
+  actor_id: number;
+  actor_name: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface UnreadCount {
+  count: number;
+}
+
 export interface StatsBucket {
   start: string;
   end: string;

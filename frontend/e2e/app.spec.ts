@@ -357,6 +357,10 @@ test('follow a user, accept the request, and see their public activity in the fe
 
   await signOut(page);
   await signIn(page);
+  await page.getByRole('link', { name: /^Notifications/ }).click();
+  await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'E2E Fan wants to follow you.' })).toBeVisible();
+  await expectAccessible(page);
   await page.getByRole('link', { name: 'People', exact: true }).click();
   const accept = page.getByRole('button', { name: 'Accept request from E2E Fan' });
   await expect(accept).toBeVisible();
@@ -366,6 +370,14 @@ test('follow a user, accept the request, and see their public activity in the fe
 
   await signOut(page);
   await signIn(page, username, password);
+  await page.getByRole('link', { name: /^Notifications/ }).click();
+  await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Administrator accepted your follow request.' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Mark all as read' }).click();
+  await expect(page.getByRole('button', { name: 'Mark all as read' })).toBeDisabled();
+  await expectAccessible(page);
   await page.getByRole('link', { name: 'People', exact: true }).click();
   await page.getByRole('link', { name: 'Administrator' }).first().click();
   await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();

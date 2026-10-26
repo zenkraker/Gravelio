@@ -1,10 +1,13 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
+import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { AuthService } from './core/auth';
+import { Notifications } from './core/notifications';
 
 @Component({
   selector: 'app-shell',
@@ -12,6 +15,7 @@ import { AuthService } from './core/auth';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
+    MatBadgeModule,
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
@@ -60,6 +64,21 @@ import { AuthService } from './core/auth';
           i18n
           >People</a
         >
+        <a
+          mat-button
+          routerLink="/notifications"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+        >
+          <span class="cdk-visually-hidden" i18n>Notifications</span>
+          <mat-icon
+            aria-hidden="true"
+            [matBadge]="notifications.count() || null"
+            matBadgeColor="warn"
+            matBadgeSize="small"
+            >notifications</mat-icon
+          >
+        </a>
         @if (auth.isAdmin()) {
           <a
             mat-button
@@ -106,4 +125,12 @@ import { AuthService } from './core/auth';
 })
 export class Shell {
   protected readonly auth = inject(AuthService);
+  protected readonly notifications = inject(Notifications);
+
+  constructor() {
+    // New notifications arrive while the user is elsewhere, so refresh the badge after each navigation.
+    inject(Router)
+      .events.pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => this.notifications.refresh());
+  }
 }
