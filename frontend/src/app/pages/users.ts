@@ -55,15 +55,29 @@ import { ConfirmDialog } from '../components/confirm-dialog';
       </ng-container>
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef i18n>Status</th>
-        <td mat-cell *matCellDef="let u">{{ u.active ? activeLabel : inactiveLabel }}</td>
+        <td mat-cell *matCellDef="let u">
+          {{ u.pending_approval ? pendingLabel : u.active ? activeLabel : inactiveLabel }}
+        </td>
       </ng-container>
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
         <td mat-cell *matCellDef="let u">
           @if (u.id !== me()?.id) {
-            <button mat-button type="button" (click)="toggleActive(u)">
-              {{ u.active ? deactivateLabel : activateLabel }}
-            </button>
+            @if (u.pending_approval) {
+              <button
+                mat-button
+                type="button"
+                [attr.aria-label]="approveLabel(u)"
+                (click)="approve(u)"
+                i18n
+              >
+                Approve
+              </button>
+            } @else {
+              <button mat-button type="button" (click)="toggleActive(u)">
+                {{ u.active ? deactivateLabel : activateLabel }}
+              </button>
+            }
             <button mat-button type="button" (click)="confirmDelete(u)" i18n>Delete</button>
           }
         </td>
@@ -148,6 +162,7 @@ export class Users {
     params: { page: this.pageIndex(), page_size: this.pageSize },
   }));
   protected readonly error = signal('');
+  protected readonly pendingLabel = $localize`Pending approval`;
   protected readonly activeLabel = $localize`Active`;
   protected readonly inactiveLabel = $localize`Inactive`;
   protected readonly activateLabel = $localize`Activate`;
@@ -183,6 +198,19 @@ export class Users {
         this.error.set(problemMessage(err));
       }
     });
+  }
+
+  protected approveLabel(user: User): string {
+    return $localize`Approve ${user.username}`;
+  }
+
+  protected async approve(user: User): Promise<void> {
+    try {
+      await firstValueFrom(this.http.put(`/api/v1/users/${user.id}/approve`, {}));
+      this.users.reload();
+    } catch (err) {
+      this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
+    }
   }
 
   protected async toggleActive(user: User): Promise<void> {

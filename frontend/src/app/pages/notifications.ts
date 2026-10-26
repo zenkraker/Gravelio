@@ -130,6 +130,8 @@ export class NotificationsPage {
         return $localize`${n.actor_name} wants to follow you.`;
       case 12:
         return $localize`${n.actor_name} accepted your follow request.`;
+      case 21:
+        return $localize`${n.actor_name} signed up and is waiting for your approval.`;
       default:
         return $localize`${n.actor_name} sent you a notification.`;
     }
@@ -137,6 +139,7 @@ export class NotificationsPage {
 
   /** What a notification opens: the activity it is about, otherwise the person behind it. */
   protected link(n: Notification): (string | number)[] {
+    if (n.type === 21) return ['/users'];
     return n.activity_id ? ['/activities', n.activity_id] : ['/people', n.actor_id];
   }
 

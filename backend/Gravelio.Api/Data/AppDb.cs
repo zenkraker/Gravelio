@@ -8,6 +8,10 @@ public class User : IdentityUser<int>
 {
     public required string Name { get; set; }
     public bool Active { get; set; } = true;
+
+    /// Signed up while an admin has to approve new accounts; stays inactive until then, which is different from a deactivated account.
+    public bool PendingApproval { get; set; }
+
     public string? City { get; set; }
     public DateOnly? Birthdate { get; set; }
     public string PreferredLanguage { get; set; } = "en";

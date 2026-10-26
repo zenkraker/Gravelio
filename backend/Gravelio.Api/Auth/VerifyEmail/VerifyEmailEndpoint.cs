@@ -2,6 +2,7 @@ using Gravelio.Api.Common;
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Data;
+using Gravelio.Api.Users;
 using Microsoft.AspNetCore.Identity;
 
 namespace Gravelio.Api.Auth;
@@ -21,7 +22,7 @@ public sealed class VerifyEmailValidator : Validator<VerifyEmailRequest>
     }
 }
 
-public sealed class VerifyEmailEndpoint(UserManager<User> users) : Endpoint<VerifyEmailRequest>
+public sealed class VerifyEmailEndpoint(AppDb db, UserManager<User> users, TimeProvider time, ILogger<VerifyEmailEndpoint> log) : Endpoint<VerifyEmailRequest>
 {
     const string InvalidLink = "This confirmation link is invalid or has expired.";
 
@@ -41,6 +42,7 @@ public sealed class VerifyEmailEndpoint(UserManager<User> users) : Endpoint<Veri
 
         var result = await users.ConfirmEmailAsync(user, req.Token);
         if (!result.Succeeded) ThrowError(InvalidLink, StatusCodes.Status400BadRequest);
+        if (user.PendingApproval) await SignupApprovals.NotifyAdminsAsync(db, users, user, time.GetUtcNow().UtcDateTime, log, ct);
         await Send.NoContentAsync(ct);
     }
 }

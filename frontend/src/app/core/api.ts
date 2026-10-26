@@ -18,6 +18,7 @@ export interface User {
   timezone: string;
   currency: 'euro' | 'dollar' | 'pound';
   mfa_enabled: boolean;
+  pending_approval: boolean;
 }
 
 export interface MfaStatus {

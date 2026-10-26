@@ -56,6 +56,7 @@ public sealed class SignupEndpoint(AppDb db, UserManager<User> users, IEmailSend
             UserName = req.Username,
             Email = req.Email,
             Active = !settings.SignupRequireAdminApproval,
+            PendingApproval = settings.SignupRequireAdminApproval,
             EmailConfirmed = !settings.SignupRequireEmailVerification,
             CreatedAt = time.GetUtcNow().UtcDateTime,
         };
@@ -85,6 +86,8 @@ public sealed class SignupEndpoint(AppDb db, UserManager<User> users, IEmailSend
                 log.LogWarning(e, "Could not send an account confirmation email");
             }
         }
+
+        if (user.PendingApproval && user.EmailConfirmed) await SignupApprovals.NotifyAdminsAsync(db, users, user, time.GetUtcNow().UtcDateTime, log, ct);
 
         await Send.OkAsync(new SignupRead(!user.EmailConfirmed, !user.Active), ct);
     }

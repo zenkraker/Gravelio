@@ -994,6 +994,9 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
+                    b.Property<bool>("PendingApproval")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 

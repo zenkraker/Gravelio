@@ -159,4 +159,86 @@ public class ServerSettingsTests(ApiFixture api)
             await SaveAsync(admin, false);
         }
     }
+
+    static async Task<int> UserIdAsync(ApiClient admin, string username) =>
+        (await admin.GetJsonAsync<JsonElement>("/api/v1/users?page_size=100")).GetProperty("items").EnumerateArray()
+            .Single(u => u.GetProperty("username").GetString() == username).GetProperty("id").GetInt32();
+
+    static async Task<bool> AdminWasToldAsync(ApiClient admin, int userId) =>
+        (await admin.GetJsonAsync<JsonElement>("/api/v1/notifications?page_size=100")).GetProperty("items").EnumerateArray()
+            .Any(n => n.GetProperty("type").GetInt32() == 21 && n.GetProperty("actor_id").GetInt32() == userId);
+
+    [Fact]
+    public async Task An_admin_is_told_about_and_approves_a_pending_signup()
+    {
+        var admin = await api.LoginAsync();
+        try
+        {
+            Assert.Equal(HttpStatusCode.OK, (await SaveAsync(admin, true, approval: true)).StatusCode);
+            api.Email.Clear();
+            var anon = await AnonymousAsync();
+            var username = $"signup.pend.{Guid.NewGuid():N}"[..22];
+            Assert.Equal(HttpStatusCode.OK, (await SignupAsync(anon, username)).StatusCode);
+            int id = await UserIdAsync(admin, username);
+
+            Assert.True(await AdminWasToldAsync(admin, id));
+            var listed = (await admin.GetJsonAsync<JsonElement>("/api/v1/users?page_size=100")).GetProperty("items").EnumerateArray()
+                .Single(u => u.GetProperty("id").GetInt32() == id);
+            Assert.True(listed.GetProperty("pending_approval").GetBoolean());
+
+            // "Waiting for approval" is shown only to someone who knows the password.
+            async Task<string> LoginErrorAsync(string password) => await (await anon.Http.PostAsJsonAsync("/api/v1/auth/login",
+                new { Username = username, Password = password }, ApiClient.Json)).Content.ReadAsStringAsync();
+            Assert.Contains("waiting for approval", await LoginErrorAsync("Signup-Pass-1!"));
+            Assert.Contains("Incorrect username or password", await LoginErrorAsync("Wrong-pass-1!"));
+
+            // Only admins approve.
+            var regularName = $"settings.appr.{Guid.NewGuid():N}"[..22];
+            await api.CreateUserAsync(admin, regularName);
+            var regular = await api.LoginAsync(regularName, "Str0ng-pass!");
+            Assert.Equal(HttpStatusCode.Forbidden, (await regular.Http.PutAsync($"/api/v1/users/{id}/approve", null)).StatusCode);
+
+            var approved = await admin.Http.PutAsync($"/api/v1/users/{id}/approve", null);
+            Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+            var body = await approved.Content.ReadFromJsonAsync<JsonElement>(ApiClient.Json);
+            Assert.True(body.GetProperty("active").GetBoolean());
+            Assert.False(body.GetProperty("pending_approval").GetBoolean());
+            Assert.Contains(api.Email.Sent, m => m.To == $"{username}@example.com" && m.Subject.Contains("approved"));
+
+            await api.LoginAsync(username, "Signup-Pass-1!");
+            // Approving twice, or "approving" a normal account, is a conflict.
+            Assert.Equal(HttpStatusCode.Conflict, (await admin.Http.PutAsync($"/api/v1/users/{id}/approve", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await admin.Http.PutAsync("/api/v1/users/999999/approve", null)).StatusCode);
+        }
+        finally
+        {
+            await SaveAsync(admin, false);
+        }
+    }
+
+    [Fact]
+    public async Task With_email_verification_the_admin_hears_about_a_pending_signup_only_after_the_address_is_confirmed()
+    {
+        var admin = await api.LoginAsync();
+        try
+        {
+            Assert.Equal(HttpStatusCode.OK, (await SaveAsync(admin, true, verify: true, approval: true)).StatusCode);
+            api.Email.Clear();
+            var anon = await AnonymousAsync();
+            var username = $"signup.both.{Guid.NewGuid():N}"[..22];
+            Assert.Equal(HttpStatusCode.OK, (await SignupAsync(anon, username)).StatusCode);
+            int id = await UserIdAsync(admin, username);
+            Assert.False(await AdminWasToldAsync(admin, id));
+
+            var match = VerifyLink.Match(Assert.Single(api.Email.Sent, m => m.To == $"{username}@example.com").Body);
+            var verify = await anon.Http.PostAsJsonAsync("/api/v1/auth/verify-email",
+                new { UserId = int.Parse(match.Groups[1].Value), Token = Uri.UnescapeDataString(match.Groups[2].Value) }, ApiClient.Json);
+            Assert.Equal(HttpStatusCode.NoContent, verify.StatusCode);
+            Assert.True(await AdminWasToldAsync(admin, id));
+        }
+        finally
+        {
+            await SaveAsync(admin, false);
+        }
+    }
 }

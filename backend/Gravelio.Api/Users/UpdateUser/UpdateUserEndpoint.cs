@@ -30,6 +30,7 @@ public sealed class UpdateUserEndpoint(UserManager<User> users, AppDb db) : Endp
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         user.Name = req.Name;
         user.Active = req.Active;
+        if (req.Active) user.PendingApproval = false; // an admin who activates the account has approved it
         var result = await users.SetUserNameAsync(user, req.Username);
         if (result.Succeeded) result = await users.SetEmailAsync(user, req.Email);
         // SetEmailAsync clears confirmation even for an unchanged address; an admin sets the address, so it is confirmed.

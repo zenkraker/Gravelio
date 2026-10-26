@@ -21,7 +21,14 @@ public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> 
         {
             // Unknown and deactivated users get the same 401 and still pay for a hash, so neither the response
             // nor its timing reveals which accounts exist.
-            users.PasswordHasher.HashPassword(new User { Name = "", UserName = "" }, req.Password);
+            if (user is { PendingApproval: true })
+            {
+                // The password check costs one hash, like the dummy one below, so timing does not tell the cases apart.
+                var pending = await signIn.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);
+                // Only revealed to someone who proved the password.
+                if (pending.Succeeded) ThrowError("Your account is waiting for approval by an administrator.", StatusCodes.Status401Unauthorized);
+            }
+            else users.PasswordHasher.HashPassword(new User { Name = "", UserName = "" }, req.Password);
             ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
         }
         if (user.TwoFactorEnabled)

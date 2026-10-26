@@ -372,6 +372,65 @@ test('an admin can enable sign-up and a new account can sign in', async ({ page 
   await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
 });
 
+test('a sign-up that needs approval waits for an admin, who is told and approves it', async ({
+  page,
+}) => {
+  const username = `e2e.pending${Date.now()}`;
+
+  await signIn(page);
+  await page.getByRole('link', { name: 'Server settings' }).click();
+  await page.getByRole('checkbox', { name: 'Allow self sign-up' }).check();
+  await page
+    .getByRole('checkbox', { name: 'Require an administrator to approve new accounts' })
+    .check();
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect(page.getByText('Server settings saved')).toBeVisible();
+  await signOut(page);
+
+  try {
+    await page.getByRole('link', { name: 'Create an account' }).click();
+    await page.getByLabel('Name', { exact: true }).fill('E2E Pending');
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Email').fill(`${username}@example.com`);
+    await page.getByLabel('Password', { exact: true }).fill('Signup-Pass-1!');
+    await page.getByLabel('Repeat password').fill('Signup-Pass-1!');
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await page.getByRole('link', { name: 'Back to sign in' }).click();
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Password').fill('Signup-Pass-1!');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('waiting for approval by an administrator')).toBeVisible();
+
+    await signIn(page);
+    await page.getByRole('link', { name: 'Notifications' }).first().click();
+    await expect(
+      page.getByText(`E2E Pending signed up and is waiting for your approval.`),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Users' }).click();
+    await expect(page.getByRole('row', { name: new RegExp(username) })).toContainText(
+      'Pending approval',
+    );
+    await expectAccessible(page);
+    await page.getByRole('button', { name: `Approve ${username}` }).click();
+    await expect(page.getByRole('row', { name: new RegExp(username) })).toContainText('Active');
+    await signOut(page);
+
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Password').fill('Signup-Pass-1!');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
+    await signOut(page);
+  } finally {
+    await signIn(page);
+    await page.getByRole('link', { name: 'Server settings' }).click();
+    await page
+      .getByRole('checkbox', { name: 'Require an administrator to approve new accounts' })
+      .uncheck();
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await expect(page.getByText('Server settings saved')).toBeVisible();
+  }
+});
+
 test('follow a user, accept the request, and see their public activity in the feed', async ({
   page,
 }) => {
