@@ -1,10 +1,15 @@
 import { HttpClient, httpResource } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { FormField, form, submit } from '@angular/forms/signals';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { OUTLINE_FIELDS } from '../core/outline-fields';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -23,6 +28,8 @@ import {
 
 const PAGE_SIZE = 20;
 
+const NO_FILTERS = { q: '', type: '', from: '', to: '', sort: 'start_time', order: 'desc' };
+
 interface StravaImportResult {
   imported: number;
   skipped: number;
@@ -31,8 +38,13 @@ interface StravaImportResult {
 
 @Component({
   selector: 'app-activities',
+  providers: [OUTLINE_FIELDS],
   imports: [
     RouterLink,
+    FormField,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
@@ -86,6 +98,53 @@ interface StravaImportResult {
         <mat-button-toggle value="following" i18n>Following</mat-button-toggle>
       </mat-button-toggle-group>
     </div>
+    @if (scope() === 'mine') {
+      <form class="filters" novalidate (submit)="applyFilters($event)">
+        <mat-form-field>
+          <mat-label i18n>Search by name</mat-label>
+          <input matInput type="search" [formField]="ff.q" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label i18n>Activity type</mat-label>
+          <mat-select [formField]="ff.type">
+            <mat-option value="" i18n>All types</mat-option>
+            @for (t of types.options(); track t.id) {
+              <mat-option [value]="'' + t.id">{{ t.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label i18n>From</mat-label>
+          <input matInput type="date" [formField]="ff.from" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label i18n>To</mat-label>
+          <input matInput type="date" [formField]="ff.to" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label i18n>Sort by</mat-label>
+          <mat-select [formField]="ff.sort">
+            @for (s of sortKeys; track s.id) {
+              <mat-option [value]="s.id">{{ s.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label i18n>Order</mat-label>
+          <mat-select [formField]="ff.order">
+            <mat-option value="desc" i18n>Highest or newest first</mat-option>
+            <mat-option value="asc" i18n>Lowest or oldest first</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <div class="filter-actions">
+          <button mat-flat-button type="submit" i18n>Apply</button>
+          <button mat-button type="button" (click)="clearFilters()" i18n>Clear</button>
+          @if (gear()) {
+            <span i18n>Only activities with the selected gear.</span>
+          }
+        </div>
+      </form>
+    }
     @if (uploading()) {
       <mat-progress-bar mode="indeterminate" aria-label="Uploading" i18n-aria-label />
     }
@@ -162,6 +221,18 @@ interface StravaImportResult {
     .scope {
       margin: 8px 0 16px;
     }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 4px 16px;
+    }
+    .filter-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
     .list {
       list-style: none;
       padding: 0;
@@ -190,16 +261,54 @@ export class Activities {
   private http = inject(HttpClient);
   private snack = inject(MatSnackBar);
   private auth = inject(AuthService);
+  private router = inject(Router);
   protected readonly types = inject(ActivityTypes);
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly pageIndex = signal(1);
   protected readonly uploading = signal(false);
   protected readonly scope = signal<'mine' | 'following'>('mine');
-  protected readonly page = httpResource<Paged<Activity>>(() => ({
-    url: this.scope() === 'mine' ? '/api/v1/activities' : '/api/v1/activities/feed',
-    params: { page: this.pageIndex(), page_size: PAGE_SIZE },
-  }));
+  /** From the address (?gear=ID): the gear page links here. */
+  readonly gear = input<string>();
+
+  protected readonly sortKeys = [
+    { id: 'start_time', label: $localize`Date` },
+    { id: 'name', label: $localize`Name` },
+    { id: 'type', label: $localize`Type` },
+    { id: 'distance', label: $localize`Distance` },
+    { id: 'duration', label: $localize`Moving time` },
+    { id: 'elevation', label: $localize`Elevation gain` },
+    { id: 'calories', label: $localize`Calories` },
+    { id: 'average_hr', label: $localize`Average heart rate` },
+  ];
+  // The form edits a draft; the list only reloads when the filters are applied, not on every keystroke.
+  private readonly draft = signal({ ...NO_FILTERS });
+  protected readonly ff = form(this.draft);
+  private readonly applied = signal({ ...NO_FILTERS });
+
+  protected readonly page = httpResource<Paged<Activity>>(() => {
+    if (this.scope() === 'following') {
+      return {
+        url: '/api/v1/activities/feed',
+        params: { page: this.pageIndex(), page_size: PAGE_SIZE },
+      };
+    }
+    const f = this.applied();
+    return {
+      url: '/api/v1/activities',
+      params: {
+        page: this.pageIndex(),
+        page_size: PAGE_SIZE,
+        sort: f.sort,
+        order: f.order,
+        ...(f.q.trim() ? { q: f.q.trim() } : {}),
+        ...(f.type ? { type: f.type } : {}),
+        ...(f.from ? { from: f.from } : {}),
+        ...(f.to ? { to: f.to } : {}),
+        ...(this.gear() ? { gear_id: this.gear()! } : {}),
+      },
+    };
+  });
 
   private readonly units = computed(() => this.auth.user()?.units ?? 'metric');
   protected readonly distance = (m: number) => formatDistance(m, this.units());
@@ -211,6 +320,21 @@ export class Activities {
 
   protected onPage(event: PageEvent): void {
     this.pageIndex.set(event.pageIndex + 1);
+  }
+
+  protected async applyFilters(event: Event): Promise<void> {
+    event.preventDefault();
+    await submit(this.ff, async () => {
+      this.applied.set({ ...this.draft() });
+      this.pageIndex.set(1);
+    });
+  }
+
+  protected clearFilters(): void {
+    this.draft.set({ ...NO_FILTERS });
+    this.applied.set({ ...NO_FILTERS });
+    this.pageIndex.set(1);
+    if (this.gear()) void this.router.navigate([], { queryParams: { gear: null } });
   }
 
   protected setScope(value: string): void {

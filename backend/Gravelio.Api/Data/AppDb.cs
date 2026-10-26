@@ -368,6 +368,10 @@ public static class PoopColors
 
 public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
+    /// The wall-clock time in an IANA zone for a UTC instant (PostgreSQL's timezone()), so a query can compare an activity's local date.
+    [DbFunction("timezone", IsBuiltIn = true)]
+    public static DateTime LocalTime(string zone, DateTime utc) => throw new NotSupportedException("Only translated to SQL.");
+
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityStream> ActivityStreams => Set<ActivityStream>();
     public DbSet<Gear> Gears => Set<Gear>();
@@ -391,6 +395,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.HasDbFunction(typeof(AppDb).GetMethod(nameof(LocalTime))!).HasStoreType("timestamp without time zone");
         b.Entity<Activity>().HasOne(a => a.User).WithMany().OnDelete(DeleteBehavior.Cascade);
         // One recording per user and start time; the upload endpoint relies on this to reject parallel duplicates.
         b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime }).IsUnique();

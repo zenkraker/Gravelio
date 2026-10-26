@@ -5,8 +5,8 @@ import { Page, expect, test } from '@playwright/test';
 const PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'Admin-Password-1!';
 
 /** A short run in Lisbon, unique per run so repeated runs don't hit the duplicate check. */
-function gpx(): Buffer {
-  const start = Date.now() - 86_400_000;
+function gpx(name = 'E2E run', sport = 'running', daysAgo = 1): Buffer {
+  const start = Date.now() - daysAgo * 86_400_000;
   const points = Array.from({ length: 60 }, (_, i) => {
     const time = new Date(start + i * 10_000).toISOString().replace(/\.\d+Z$/, 'Z');
     return (
@@ -15,7 +15,7 @@ function gpx(): Buffer {
     );
   });
   return Buffer.from(
-    `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>E2E run</name><type>running</type><trkseg>${points.join('')}</trkseg></trk></gpx>`,
+    `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${name}</name><type>${sport}</type><trkseg>${points.join('')}</trkseg></trk></gpx>`,
   );
 }
 
@@ -642,6 +642,68 @@ test('share a public activity by link; an anonymous visitor sees only what the o
     await setLinks(false);
     await visitor.close();
   }
+});
+
+test('find activities with the filters: name, type and sort', async ({ page }) => {
+  const username = `e2e.filter${Date.now()}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  const created = await page.request.post('/api/v1/users', {
+    headers,
+    data: {
+      name: 'E2E Filter',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+  await signOut(page);
+
+  await signIn(page, username, password);
+  const userHeaders = { 'X-XSRF-TOKEN': await xsrf(page) };
+  for (const [name, sport, daysAgo] of [
+    ['Filter canal run', 'running', 3],
+    ['Filter hill ride', 'cycling', 2],
+    ['Filter river ride', 'cycling', 1],
+  ] as const) {
+    const upload = await page.request.post('/api/v1/activities/upload', {
+      headers: userHeaders,
+      multipart: {
+        file: { name: 'f.gpx', mimeType: 'application/gpx+xml', buffer: gpx(name, sport, daysAgo) },
+      },
+    });
+    expect(upload.ok()).toBe(true);
+  }
+
+  await page.goto('/activities');
+  await expect(page.getByRole('link', { name: 'Filter canal run' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Filter / })).toHaveCount(3);
+  await expectAccessible(page);
+
+  await page.getByLabel('Search by name').fill('hill');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('link', { name: /^Filter / })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Filter hill ride' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('combobox', { name: 'Activity type' }).click();
+  await page.getByRole('option', { name: 'Ride', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('link', { name: /^Filter / })).toHaveCount(2);
+  await expect(page.getByRole('link', { name: 'Filter canal run' })).toHaveCount(0);
+
+  await page.getByRole('combobox', { name: 'Sort by' }).click();
+  await page.getByRole('option', { name: 'Name' }).click();
+  await page.getByRole('combobox', { name: 'Order' }).click();
+  await page.getByRole('option', { name: 'Lowest or oldest first' }).click();
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('link', { name: /^Filter / }).first()).toHaveText('Filter hill ride');
+  await expectAccessible(page);
 });
 
 test('sign out ends the session', async ({ page }) => {

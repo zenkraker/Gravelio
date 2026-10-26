@@ -70,6 +70,10 @@ const emptyComponent = {
             }
           </p>
         </div>
+        <a mat-button routerLink="/activities" [queryParams]="{ gear: g.id }">
+          <mat-icon aria-hidden="true">directions_run</mat-icon
+          ><span i18n>Activities with this gear</span>
+        </a>
         <button mat-button type="button" (click)="confirmDeleteGear(g)">
           <mat-icon aria-hidden="true">delete</mat-icon><span i18n>Delete</span>
         </button>
