@@ -51,6 +51,9 @@ services:
       Geocoding__UserAgent: ${GEOCODING_USER_AGENT:-Gravelio self-hosted (+https://github.com/zenkraker/Gravelio)}
       # Outgoing calls refuse private addresses and plain http. Allow them only to use a server on your own network (e.g. your own Nominatim).
       Outbound__AllowPrivateNetworks: ${OUTBOUND_ALLOW_PRIVATE_NETWORKS:-false}
+      # The map tile server (shared with the web container below, whose content-security-policy has to allow it).
+      Tiles__UrlTemplate: ${TILE_URL:-}
+      Tiles__Attribution: ${TILE_ATTRIBUTION:-}
       # Telemetry is exported only when this is set.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # Optional outgoing email (password reset). Leave EMAIL_HOST/EMAIL_FROM unset to disable email.
@@ -69,6 +72,8 @@ services:
 
   web:
     build: { context: ., dockerfile: docker/web.Dockerfile }
+    environment:
+      TILE_URL: ${TILE_URL:-}
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:8080"

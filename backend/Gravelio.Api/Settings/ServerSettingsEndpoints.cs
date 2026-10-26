@@ -3,6 +3,7 @@ using Gravelio.Api.Auth;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Gravelio.Api.Settings;
 
@@ -63,7 +64,7 @@ public sealed class UpdateServerSettingsEndpoint(AppDb db, IEmailSender email) :
 }
 
 /// What a signed-out visitor (and the SPA's link button) needs to know: whether to offer a sign-up form and whether public links work.
-public sealed class GetPublicSettingsEndpoint(AppDb db) : EndpointWithoutRequest<PublicSettingsRead>
+public sealed class GetPublicSettingsEndpoint(AppDb db, IOptions<TileOptions> tiles) : EndpointWithoutRequest<PublicSettingsRead>
 {
     public override void Configure()
     {
@@ -75,6 +76,7 @@ public sealed class GetPublicSettingsEndpoint(AppDb db) : EndpointWithoutRequest
     {
         var settings = await ServerSettingsStore.GetAsync(db, ct);
         var providers = await db.IdentityProviders.AsNoTracking().Where(p => p.Enabled).OrderBy(p => p.Name).Select(p => new Sso.SsoProviderPublic(p.Slug, p.Name)).ToListAsync(ct);
-        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled, settings.PublicShareableLinks, settings.LocalLoginEnabled, settings.SsoAutoRedirect, providers), ct);
+        await Send.OkAsync(new PublicSettingsRead(settings.SignupEnabled, settings.PublicShareableLinks, settings.LocalLoginEnabled, settings.SsoAutoRedirect, providers,
+            tiles.Value.UrlTemplate, tiles.Value.Attribution), ct);
     }
 }

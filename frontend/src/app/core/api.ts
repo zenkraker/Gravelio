@@ -273,6 +273,8 @@ export interface PublicSettings {
   local_login_enabled: boolean;
   sso_auto_redirect: boolean;
   sso_providers: { slug: string; name: string }[];
+  tile_url: string;
+  tile_attribution: string;
 }
 
 /** An identity provider as an admin sees it; the client secret is never sent back, only whether one is stored. */

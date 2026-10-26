@@ -12,7 +12,8 @@ public sealed record ServerSettingsRead(bool SignupEnabled, bool SignupRequireEm
 }
 
 /// What a signed-out visitor needs: whether to offer sign-up, whether links work, and how people may sign in.
-public sealed record PublicSettingsRead(bool SignupEnabled, bool PublicShareableLinks, bool LocalLoginEnabled, bool SsoAutoRedirect, List<Sso.SsoProviderPublic> SsoProviders);
+public sealed record PublicSettingsRead(bool SignupEnabled, bool PublicShareableLinks, bool LocalLoginEnabled, bool SsoAutoRedirect, List<Sso.SsoProviderPublic> SsoProviders,
+    string TileUrl, string TileAttribution);
 
 public static class ServerSettingsStore
 {

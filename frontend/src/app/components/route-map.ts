@@ -1,9 +1,7 @@
-import { Component, ElementRef, effect, input, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, input, viewChild } from '@angular/core';
 import * as L from 'leaflet';
+import { MapTiles } from '../core/tiles';
 import { themeColor } from '../core/theme';
-
-// shortcut: public OpenStreetMap tiles, so every view tells OSM the viewed area; make the tile server configurable when self-hosters ask.
-const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 @Component({
   selector: 'app-route-map',
@@ -13,11 +11,14 @@ const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export class RouteMap {
   readonly points = input.required<[number, number][]>();
   private readonly host = viewChild.required<ElementRef<HTMLElement>>('map');
+  private readonly tiles = inject(MapTiles);
 
   constructor() {
     effect((onCleanup) => {
+      const config = this.tiles.config();
+      if (!config) return;
       const map = L.map(this.host().nativeElement);
-      L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+      L.tileLayer(config.url, { maxZoom: 19, attribution: config.attribution }).addTo(map);
       const line = L.polyline(this.points(), {
         color: themeColor(this.host().nativeElement, 'primary'),
         weight: 4,

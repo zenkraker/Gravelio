@@ -44,7 +44,8 @@ public class ServerSettingsTests(ApiFixture api)
         var publicSettings = await anon.GetJsonAsync<JsonElement>("/api/v1/server-settings/public");
         Assert.False(publicSettings.GetProperty("signup_enabled").GetBoolean());
         // Public settings carry only what a visitor needs.
-        Assert.Equal(new[] { "local_login_enabled", "public_shareable_links", "signup_enabled", "sso_auto_redirect", "sso_providers" }, publicSettings.EnumerateObject().Select(p => p.Name).Order());
+        Assert.Equal(new[] { "local_login_enabled", "public_shareable_links", "signup_enabled", "sso_auto_redirect", "sso_providers", "tile_attribution", "tile_url" }, publicSettings.EnumerateObject().Select(p => p.Name).Order());
+        Assert.Equal("https://tile.openstreetmap.org/{z}/{x}/{y}.png", publicSettings.GetProperty("tile_url").GetString());
         // Providers appear by name and address name only: never a client id, secret or issuer.
         Assert.All(publicSettings.GetProperty("sso_providers").EnumerateArray(), p => Assert.Equal(new[] { "name", "slug" }, p.EnumerateObject().Select(x => x.Name).Order()));
 

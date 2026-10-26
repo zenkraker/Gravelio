@@ -1,0 +1,10 @@
+# Sourced by the nginx image's entrypoint before it fills the config template: the content-security-policy needs the origin
+# (scheme://host[:port]) of the map tile URL. TILE_URL is the same variable the API serves to the browser.
+TILE_URL="${TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}"
+TILE_ORIGIN="$(printf '%s' "$TILE_URL" | sed -E 's#^(https?://[^/]+).*#\1#')"
+# Nothing but a plain origin may reach the policy: a stray ; or space would add directives to it.
+if ! printf '%s' "$TILE_ORIGIN" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'; then
+    echo "TILE_URL must start with an http(s) address without a {s} placeholder, got: $TILE_URL" >&2
+    return 1 2>/dev/null || exit 1
+fi
+export TILE_ORIGIN
