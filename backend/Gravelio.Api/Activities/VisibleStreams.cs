@@ -16,9 +16,9 @@ public static class VisibleStreams
         return doc.RootElement.Clone();
     }
 
-    public static async Task<List<StreamRead>> ReadAsync(AppDb db, int activityId, int ownerId, DateTime start, bool isOwner, CancellationToken ct)
+    public static async Task<List<StreamRead>> ReadAsync(AppDb db, int activityId, int ownerId, DateTime start, HiddenDetails? hiddenOverride, bool isOwner, CancellationToken ct)
     {
-        var settings = isOwner ? null : await PrivacyMask.ForOwnerAsync(db, ownerId, ct);
+        var settings = isOwner ? null : (await PrivacyMask.ForOwnerAsync(db, ownerId, ct)).Effective(hiddenOverride);
         var hideStart = !isOwner && settings is { HideActivityStartTime: true };
         var streams = await db.ActivityStreams.AsNoTracking().Where(s => s.ActivityId == activityId).OrderBy(s => s.StreamType).ToListAsync(ct);
         return streams.Where(s => PrivacyMask.IsStreamVisible(s.StreamType, settings, isOwner))

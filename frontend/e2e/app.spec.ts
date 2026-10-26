@@ -706,6 +706,48 @@ test('find activities with the filters: name, type and sort', async ({ page }) =
   await expectAccessible(page);
 });
 
+test('edit an activity: name, private notes and what to hide', async ({ page }) => {
+  await signIn(page);
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    multipart: {
+      file: {
+        name: 'edit.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: gpx('E2E before edit', 'running', 4),
+      },
+    },
+  });
+  expect(upload.ok()).toBe(true);
+  const [activity] = await upload.json();
+
+  await page.goto(`/activities/${activity.id}`);
+  await expect(page.getByRole('heading', { name: 'E2E before edit', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Use my privacy settings' })).toBeChecked();
+  await expectAccessible(page);
+
+  const renamed = `E2E after edit ${Date.now()}`;
+  await page.getByLabel('Name', { exact: true }).fill(renamed);
+  await page.getByLabel('Private notes (only you can read these)').fill('Felt strong on the hill');
+  await page.getByLabel('How it felt (0–100)').fill('80');
+  await page.getByRole('checkbox', { name: 'Use my privacy settings' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Heart rate' }).check();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Activity saved')).toBeVisible();
+  await expect(page.getByRole('heading', { name: renamed, level: 1 })).toBeVisible();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await expect(page.getByLabel('Private notes (only you can read these)')).toHaveValue(
+    'Felt strong on the hill',
+  );
+  await expect(page.getByRole('checkbox', { name: 'Use my privacy settings' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Heart rate' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Map' })).not.toBeChecked();
+  await expectAccessible(page);
+});
+
 test('sign out ends the session', async ({ page }) => {
   await signIn(page);
   await page.getByRole('button', { name: 'Sign out' }).click();

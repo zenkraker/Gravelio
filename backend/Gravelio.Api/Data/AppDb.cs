@@ -53,6 +53,14 @@ public class Activity
     public string? TrackerModel { get; set; }
     public int? GearId { get; set; }
     public DateTime CreatedAt { get; set; }
+    /// Notes only the owner can read; no response for any other viewer includes them.
+    public string? PrivateNotes { get; set; }
+    /// How the effort felt, 0-100.
+    public int? WorkoutFeeling { get; set; }
+    /// Rate of perceived exertion, 10-100.
+    public int? WorkoutRpe { get; set; }
+    /// What the owner hides on this activity, replacing their privacy settings; null means use the settings.
+    public Privacy.HiddenDetails? HiddenDetails { get; set; }
     public List<ActivityStream> Streams { get; set; } = [];
 }
 
@@ -399,6 +407,11 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Activity>().HasOne(a => a.User).WithMany().OnDelete(DeleteBehavior.Cascade);
         // One recording per user and start time; the upload endpoint relies on this to reject parallel duplicates.
         b.Entity<Activity>().HasIndex(a => new { a.UserId, a.StartTime }).IsUnique();
+        b.Entity<Activity>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Activities_WorkoutFeeling", "\"WorkoutFeeling\" BETWEEN 0 AND 100");
+            t.HasCheckConstraint("CK_Activities_WorkoutRpe", "\"WorkoutRpe\" BETWEEN 10 AND 100");
+        });
         b.Entity<ActivityStream>().Property(s => s.Waypoints).HasColumnType("jsonb");
         b.Entity<ActivityStream>().HasIndex(s => new { s.ActivityId, s.StreamType }).IsUnique();
         b.Entity<Gear>().HasOne(g => g.User).WithMany().OnDelete(DeleteBehavior.Cascade);

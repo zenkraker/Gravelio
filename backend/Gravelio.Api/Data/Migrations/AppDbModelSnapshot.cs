@@ -69,6 +69,9 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<int?>("GearId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("HiddenDetails")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("MaxCad")
                         .HasColumnType("integer");
 
@@ -89,6 +92,9 @@ namespace Gravelio.Api.Data.Migrations
 
                     b.Property<double?>("Pace")
                         .HasColumnType("double precision");
+
+                    b.Property<string>("PrivateNotes")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("StartTime")
                         .HasColumnType("timestamp with time zone");
@@ -114,6 +120,12 @@ namespace Gravelio.Api.Data.Migrations
                     b.Property<int>("Visibility")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("WorkoutFeeling")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WorkoutRpe")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("GearId");
@@ -121,7 +133,12 @@ namespace Gravelio.Api.Data.Migrations
                     b.HasIndex("UserId", "StartTime")
                         .IsUnique();
 
-                    b.ToTable("Activities");
+                    b.ToTable("Activities", t =>
+                        {
+                            t.HasCheckConstraint("CK_Activities_WorkoutFeeling", "\"WorkoutFeeling\" BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("CK_Activities_WorkoutRpe", "\"WorkoutRpe\" BETWEEN 10 AND 100");
+                        });
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.ActivityStream", b =>

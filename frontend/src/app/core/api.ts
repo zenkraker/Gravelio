@@ -369,3 +369,11 @@ export interface GoalProgress {
   start: string;
   end: string;
 }
+
+/** The owner-only part of an activity. `hidden_details` null means it follows the owner's privacy settings. */
+export interface ActivityPrivateDetails {
+  private_notes: string | null;
+  workout_feeling: number | null;
+  workout_rpe: number | null;
+  hidden_details: string[] | null;
+}

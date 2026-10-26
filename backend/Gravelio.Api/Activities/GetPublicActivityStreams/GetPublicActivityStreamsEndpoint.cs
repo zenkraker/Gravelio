@@ -18,13 +18,13 @@ public sealed class GetPublicActivityStreamsEndpoint(AppDb db) : Endpoint<IdRequ
     {
         var settings = await ServerSettingsStore.GetAsync(db, ct);
         var activity = settings.PublicShareableLinks
-            ? await db.Activities.AsNoTracking().PubliclyLinkable().Where(a => a.Id == req.Id).Select(a => new { a.UserId, a.StartTime }).FirstOrDefaultAsync(ct)
+            ? await db.Activities.AsNoTracking().PubliclyLinkable().Where(a => a.Id == req.Id).Select(a => new { a.UserId, a.StartTime, a.HiddenDetails }).FirstOrDefaultAsync(ct)
             : null;
         if (activity is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
-        await Send.OkAsync(await VisibleStreams.ReadAsync(db, req.Id, activity.UserId, activity.StartTime, isOwner: false, ct), ct);
+        await Send.OkAsync(await VisibleStreams.ReadAsync(db, req.Id, activity.UserId, activity.StartTime, activity.HiddenDetails, isOwner: false, ct), ct);
     }
 }

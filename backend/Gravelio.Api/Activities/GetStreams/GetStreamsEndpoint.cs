@@ -13,12 +13,12 @@ public sealed class GetStreamsEndpoint(AppDb db) : Endpoint<IdRequest, List<Stre
     {
         var me = User.UserId();
         var activity = await db.Activities.AsNoTracking().VisibleTo(db, me).Where(a => a.Id == req.Id)
-            .Select(a => new { a.UserId, a.StartTime }).FirstOrDefaultAsync(ct);
+            .Select(a => new { a.UserId, a.StartTime, a.HiddenDetails }).FirstOrDefaultAsync(ct);
         if (activity is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
-        await Send.OkAsync(await VisibleStreams.ReadAsync(db, req.Id, activity.UserId, activity.StartTime, activity.UserId == me, ct), ct);
+        await Send.OkAsync(await VisibleStreams.ReadAsync(db, req.Id, activity.UserId, activity.StartTime, activity.HiddenDetails, activity.UserId == me, ct), ct);
     }
 }

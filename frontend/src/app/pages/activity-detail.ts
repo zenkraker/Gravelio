@@ -16,6 +16,7 @@ import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import { formatDateTime } from '../core/format';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { ActivityEdit } from '../components/activity-edit';
 import { ActivityView } from '../components/activity-view';
 
 @Component({
@@ -28,6 +29,7 @@ import { ActivityView } from '../components/activity-view';
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    ActivityEdit,
     ActivityView,
   ],
   template: `
@@ -83,6 +85,9 @@ import { ActivityView } from '../components/activity-view';
             </mat-select>
           </mat-form-field>
         </div>
+      }
+      @if (isOwner()) {
+        <app-activity-edit [activity]="a" (saved)="activity.reload()" />
       }
       <app-activity-view [activity]="a" [streams]="streams.value() ?? []" [units]="units()" />
     }

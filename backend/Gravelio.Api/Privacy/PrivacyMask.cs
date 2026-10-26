@@ -15,6 +15,7 @@ public static class PrivacyMask
     /// Owners always see their own activity; other viewers get the owner's hidden fields blanked.
     public static ActivityRead Apply(ActivityRead activity, UserPrivacySettings? settings, bool isOwner)
     {
+        settings = settings.Effective(activity.HiddenOverride);
         if (isOwner || settings is null) return activity;
         return activity with
         {

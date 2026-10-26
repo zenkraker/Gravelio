@@ -11,7 +11,7 @@ public class PrivacyMaskTests
 
     static ActivityRead Activity() => new(1, "Ride", "desc", 1000, 4, Start, Start.AddHours(1), "UTC", 3600, 3500, 100, 90, 0.5,
         3.0, 5.0, 200, 400, 250, 140, 170, 85, 95, 300, Visibilities.Public, "Garmin", "Edge", Start, 7,
-        new PersonRead(42, "Owner", "owner", null));
+        new PersonRead(42, "Owner", "owner", null), null);
 
     static readonly UserPrivacySettings Hidden = new()
     {
