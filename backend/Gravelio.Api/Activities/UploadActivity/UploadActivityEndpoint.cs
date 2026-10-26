@@ -32,51 +32,14 @@ public sealed class UploadActivityEndpoint(AppDb db, UserManager<User> users, Ti
         var userId = User.UserId();
         var user = (await users.GetUserAsync(User))!;
         var ext = Path.GetExtension(req.File.FileName).ToLowerInvariant();
-        List<Activity> built = []; // ThrowError never returns, but the compiler can't see that
-        var fileHash = "";
-        try
-        {
-            await using var stream = req.File.OpenReadStream();
-            fileHash = await ActivityDuplicates.HashAsync(stream, ct);
-            built = ActivityFileParser.Parse(stream, ext).Where(p => p.Points.Count > 0 || p.Summary is not null)
-                .Select(p => ActivityBuilder.Build(p, userId, user.Timezone)).ToList();
-        }
-        catch (InvalidActivityFileException e)
-        {
-            ThrowError(e.Message, StatusCodes.Status422UnprocessableEntity);
-        }
-        catch (Exception e)
-        {
-            log.LogWarning(e, "Failed to parse uploaded {Extension} file for user {UserId}", ext, userId);
-            ThrowError("Failed to parse activity file", StatusCodes.Status422UnprocessableEntity);
-        }
-
-        // Uploading the same file again is refused: nothing new would be stored.
-        foreach (var a in built) a.DedupKey = ActivityDuplicates.Key(fileHash, a.StartTime);
-        var keys = built.Select(a => a.DedupKey!).ToList();
-        var uploaded = await db.Activities.Where(a => a.UserId == userId && keys.Contains(a.DedupKey!)).Select(a => a.DedupKey!).ToListAsync(ct);
-        var fresh = built.Where(a => !uploaded.Contains(a.DedupKey!)).ToList();
-        if (fresh.Count == 0) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
-        // A different file that starts at the same moment is most likely the same workout from a second device or app. It is stored, so
-        // nothing is lost, but hidden, and the owner is told; they can unhide it if it is not a duplicate.
-        var starts = fresh.Select(a => a.StartTime).ToList();
-        var sameStart = await db.Activities.Where(a => a.UserId == userId && starts.Contains(a.StartTime)).Select(a => a.StartTime).ToListAsync(ct);
         var now = time.GetUtcNow().UtcDateTime;
-        // New activities start with the owner's default visibility; no privacy row means the safe private default.
-        var defaultVisibility = (await db.UserPrivacySettings.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct))
-            ?.DefaultActivityVisibility ?? Visibilities.Private;
-        // Pre-select the user's default gear for each activity type (retired gear is skipped).
-        var defaults = await db.DefaultGears.Where(d => d.UserId == userId && d.Gear.Active).ToDictionaryAsync(d => d.ActivityType, d => d.GearId, ct);
-        foreach (var a in fresh)
-        {
-            a.CreatedAt = now;
-            a.Visibility = defaultVisibility;
-            a.IsHidden = sameStart.Contains(a.StartTime);
-            if (defaults.TryGetValue(a.ActivityType, out var gearId)) a.GearId = gearId;
-        }
-        db.Activities.AddRange(fresh);
-        // A parallel upload of the same recording can win the race the check above can't prevent.
-        if (!await db.TrySaveUniqueAsync(ct)) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
+        var (defaultVisibility, defaultGears) = await ActivityIngestion.DefaultsAsync(db, userId, ct);
+        await using var stream = req.File.OpenReadStream();
+        var result = await ActivityIngestion.IngestAsync(db, user, ext, stream, defaultVisibility, defaultGears, now, log, ct);
+        if (result.Outcome == IngestOutcome.Invalid) ThrowError(result.Error!, StatusCodes.Status422UnprocessableEntity);
+        // Uploading the same file again is refused: nothing new would be stored.
+        if (result.Outcome == IngestOutcome.Duplicate) ThrowError("This activity has already been uploaded", StatusCodes.Status409Conflict);
+        var fresh = result.Activities;
         var duplicates = fresh.Where(a => a.IsHidden).ToList();
         foreach (var a in duplicates) NotificationWriter.AddDuplicate(db, userId, user.Name, a.Id, a.Name, now);
         // Followers hear about an activity they are allowed to see; a hidden duplicate is not one of those.

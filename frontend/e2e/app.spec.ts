@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { createHmac } from 'node:crypto';
+import { crc32 } from 'node:zlib';
 import { Page, expect, test } from '@playwright/test';
 
 const PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'Admin-Password-1!';
@@ -17,6 +18,44 @@ function gpx(name = 'E2E run', sport = 'running', daysAgo = 1, startMs?: number)
   return Buffer.from(
     `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${name}</name><type>${sport}</type><trkseg>${points.join('')}</trkseg></trk></gpx>`,
   );
+}
+
+/** A zip holding the given files, stored without compression (enough for a test, and no dependency). */
+function zipOf(files: { name: string; data: Buffer }[]): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const { name, data } of files) {
+    const nameBytes = Buffer.from(name);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    locals.push(local, nameBytes, data);
+    centrals.push(central, nameBytes);
+    offset += 30 + nameBytes.length + data.length;
+  }
+  const directory = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, directory, end]);
 }
 
 async function expectAccessible(page: Page): Promise<void> {
@@ -997,6 +1036,58 @@ test('set a profile picture, see it next to the name, then remove it', async ({ 
   await expect(page.getByText('Picture removed')).toBeVisible();
   await expect(pictures).toHaveCount(0);
   await expectAccessible(page);
+});
+
+test('import a zip of activity files in the background and watch it finish', async ({ page }) => {
+  test.setTimeout(90_000);
+  const username = `e2e.bulk${Date.now()}`;
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  expect(
+    (
+      await page.request.post('/api/v1/users', {
+        headers,
+        data: {
+          name: 'E2E Bulk',
+          username,
+          email: `${username}@example.com`,
+          access_type: 'regular',
+          active: true,
+          password: 'Str0ng-pass!',
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  await signOut(page);
+  await signIn(page, username, 'Str0ng-pass!');
+
+  const stamp = Date.now();
+  const zip = zipOf([
+    { name: 'history/one.gpx', data: gpx('Bulk one', 'running', 1, stamp - 10 * 86_400_000) },
+    { name: 'history/two.gpx', data: gpx('Bulk two', 'running', 1, stamp - 11 * 86_400_000) },
+    { name: 'history/broken.gpx', data: Buffer.from('not xml') },
+    { name: 'history/readme.txt', data: Buffer.from('ignored') },
+  ]);
+  await page.getByLabel('Zip of activity files').setInputFiles({
+    name: 'history.zip',
+    mimeType: 'application/zip',
+    buffer: zip,
+  });
+  await expect(page.locator('app-bulk-import').getByRole('status')).toContainText(
+    /Waiting to start|Importing|Import finished/,
+  );
+  // The server works through it in the background; the page follows the progress and lists the result.
+  await expect(page.locator('app-bulk-import').getByRole('status')).toContainText(
+    'Import finished: 2 activities added',
+    {
+      timeout: 45_000,
+    },
+  );
+  await expect(page.getByText('history/broken.gpx')).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: 'Import progress' })).toBeVisible();
+  await expectAccessible(page);
+  await expect(page.getByRole('link', { name: 'Bulk one' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Bulk two' })).toBeVisible();
 });
 
 test('make an API key, upload with it, then revoke and delete it', async ({ page, request }) => {

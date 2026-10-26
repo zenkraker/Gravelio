@@ -433,6 +433,23 @@ export interface DailyStats {
   poop_count: number;
 }
 
+export interface ImportJob {
+  id: number;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  file_name: string;
+  total_files: number;
+  processed_files: number;
+  imported: number;
+  skipped: number;
+  hidden_duplicates: number;
+  failed: number;
+  failures: { file: string; error: string }[];
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
 export interface Session {
   id: number;
   device: string;

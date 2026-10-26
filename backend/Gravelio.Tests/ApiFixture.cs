@@ -16,6 +16,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string AdminPassword = "Admin-Password-1!"; // from appsettings.Development.json
 
+    public string ImportDirectory { get; } = Path.Combine(Path.GetTempPath(), $"gravelio-test-imports-{Guid.NewGuid():N}");
+
     readonly PostgreSqlContainer db = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
     async Task IAsyncLifetime.InitializeAsync() => await db.StartAsync();
@@ -31,6 +33,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:Default", db.GetConnectionString());
         builder.UseSetting("Auth:LoginAttemptsPerMinute", "10000"); // every test shares the in-process "client IP"
         foreach (var limit in new[] { "ReadsPerMinute", "WritesPerMinute", "UploadsPerMinute" }) builder.UseSetting($"RateLimits:{limit}", "100000");
+        builder.UseSetting("ImportJobs:Directory", ImportDirectory);
+        builder.UseSetting("ImportJobs:Enabled", "false"); // tests run a pass by hand instead of racing the timer
         builder.UseSetting("DataProtection:KeysPath", Path.Combine(Path.GetTempPath(), "gravelio-test-keys"));
         // Emails are captured instead of sent: tests read the reset link out of them.
         builder.ConfigureTestServices(services =>

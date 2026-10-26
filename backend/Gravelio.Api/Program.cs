@@ -7,6 +7,7 @@ using Gravelio.Api.Common;
 using Gravelio.Api.Data;
 using Gravelio.Api.Email;
 using Gravelio.Api.Geocoding;
+using Gravelio.Api.Imports;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
@@ -50,6 +51,9 @@ builder.Services.AddGravelioRateLimiting();
 // Background jobs. Geocoding is opt-in because it sends activity positions to another server.
 builder.Services.AddOptions<GeocodingOptions>().BindConfiguration("Geocoding").ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddGuardedHttpClient(GeocodingJob.HttpClientName);
+builder.Services.AddOptions<ImportOptions>().BindConfiguration("ImportJobs").ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<BulkImportJob>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BulkImportJob>());
 builder.Services.AddSingleton<GeocodingJob>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GeocodingJob>());
 

@@ -260,6 +260,40 @@ public class ActivityLocationAttempt
     public DateTime AttemptedAt { get; set; }
 }
 
+/// A bulk import of a zip of activity files, run in the background so a long upload of history does not hold a request open.
+/// A person has at most one queued or running job. The zip waits in the import directory until the job finishes.
+public class ImportJob
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public string Status { get; set; } = ImportStatuses.Queued;
+    /// A client-chosen key: sending the same zip again with it returns this job instead of starting another.
+    public string? IdempotencyKey { get; set; }
+    public required string FileName { get; set; }
+    public int TotalFiles { get; set; }
+    public int ProcessedFiles { get; set; }
+    public int Imported { get; set; }
+    /// Files whose activities were all uploaded before.
+    public int Skipped { get; set; }
+    /// Activities stored hidden because they start when another one does.
+    public int HiddenDuplicates { get; set; }
+    public int Failed { get; set; }
+    /// The first failures as a JSON array of {file, error}, for the person to inspect.
+    public string? Failures { get; set; }
+    public string? Error { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+    public DateTime? HeartbeatAt { get; set; }
+}
+
+public static class ImportStatuses
+{
+    public const string Queued = "queued", Running = "running", Completed = "completed", Failed = "failed", Cancelled = "cancelled";
+
+    public static bool IsActive(string status) => status is Queued or Running;
+}
+
 public class ApiKey
 {
     public int Id { get; set; }
@@ -493,6 +527,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<UserPhoto> UserPhotos => Set<UserPhoto>();
+    public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ActivityLocationAttempt> ActivityLocationAttempts => Set<ActivityLocationAttempt>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
@@ -575,6 +610,15 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<Activity>().Property(a => a.City).HasMaxLength(250);
         b.Entity<Activity>().Property(a => a.Town).HasMaxLength(250);
         b.Entity<Activity>().Property(a => a.Country).HasMaxLength(250);
+        b.Entity<ImportJob>().HasOne<User>().WithMany().HasForeignKey(j => j.UserId).OnDelete(DeleteBehavior.Cascade);
+        // One import at a time per person, and a retried request with the same key finds its job instead of making another.
+        b.Entity<ImportJob>().HasIndex(j => j.UserId).IsUnique().HasFilter("\"Status\" IN ('queued', 'running')");
+        b.Entity<ImportJob>().HasIndex(j => new { j.UserId, j.IdempotencyKey }).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+        b.Entity<ImportJob>().Property(j => j.Status).HasMaxLength(20);
+        b.Entity<ImportJob>().Property(j => j.IdempotencyKey).HasMaxLength(100);
+        b.Entity<ImportJob>().Property(j => j.FileName).HasMaxLength(255);
+        b.Entity<ImportJob>().Property(j => j.Failures).HasColumnType("jsonb");
+        b.Entity<ImportJob>().ToTable(t => t.HasCheckConstraint("CK_ImportJobs_Status", "\"Status\" IN ('queued', 'running', 'completed', 'failed', 'cancelled')"));
         b.Entity<UserPhoto>().HasKey(p => p.UserId);
         b.Entity<UserPhoto>().HasOne<User>().WithOne().HasForeignKey<UserPhoto>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UserSession>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);

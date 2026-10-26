@@ -7,6 +7,9 @@ public sealed class ZipBudget(long totalBytes, long entryBytes)
 {
     long left = totalBytes;
 
+    /// True once the total has been read past: nothing more can be read from this zip.
+    public bool Exhausted => left < 0;
+
     public Stream Open(System.IO.Compression.ZipArchiveEntry entry) => new Limited(entry.Open(), this, entryBytes);
 
     sealed class Limited(Stream inner, ZipBudget budget, long entryLimit) : Stream

@@ -1,3 +1,4 @@
+import { BulkImport } from '../components/bulk-import';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormField, form, submit } from '@angular/forms/signals';
@@ -41,6 +42,7 @@ interface StravaImportResult {
   selector: 'app-activities',
   providers: [OUTLINE_FIELDS],
   imports: [
+    BulkImport,
     HealthToday,
     RouterLink,
     FormField,
@@ -102,6 +104,7 @@ interface StravaImportResult {
     </div>
     @if (scope() === 'mine') {
       <app-health-today />
+      <app-bulk-import (finished)="page.reload()" />
       <form class="filters" novalidate (submit)="applyFilters($event)">
         <mat-form-field>
           <mat-label i18n>Search by name</mat-label>

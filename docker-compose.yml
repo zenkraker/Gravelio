@@ -63,6 +63,7 @@ services:
       Email__EnableSsl: ${EMAIL_SSL:-true}
     volumes:
       - api-keys:/keys
+      - import-jobs:/imports
     depends_on:
       migrate: { condition: service_completed_successfully }
 
@@ -78,3 +79,5 @@ volumes:
   db-data:
   # Login-cookie keys. Back it up with the database, but keep it separate: a database dump alone can't forge sessions.
   api-keys:
+  # Zips queued for bulk import. Safe to lose, but a queued import then fails.
+  import-jobs:
