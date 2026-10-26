@@ -23,6 +23,7 @@ public sealed class ImportDataEndpoint(AppDb db, ILogger<ImportDataEndpoint> log
     const long MaxEntryBytes = 200L * 1024 * 1024;
     const long MaxTotalBytes = 2L * 1024 * 1024 * 1024;
     const int BatchSize = 200;
+    const int MaxLaps = 5_000;
 
     sealed class Rejected(string message) : Exception(message);
 
@@ -98,6 +99,8 @@ public sealed class ImportDataEndpoint(AppDb db, ILogger<ImportDataEndpoint> log
             }
             if (!ActivityTypes.Names.ContainsKey(activity.ActivityType)) throw new Rejected($"{entry.FullName} has an unknown activity type.");
             foreach (var stream in activity.Streams) CheckStream(stream, entry.FullName);
+            if (activity.Laps.Count > MaxLaps || activity.Laps.Any(l => l.TotalElapsedTime < 0 || l.Distance < 0))
+                throw new Rejected($"{entry.FullName} has invalid laps.");
 
             haveKeys.Add(key);
             haveStarts.Add(activity.StartTime);
@@ -107,6 +110,7 @@ public sealed class ImportDataEndpoint(AppDb db, ILogger<ImportDataEndpoint> log
             activity.Visibility = defaultVisibility;
             activity.GearId = activity.GearId is { } old && gearMap.TryGetValue(old, out var mapped) ? mapped : null;
             foreach (var stream in activity.Streams) stream.Id = 0;
+            foreach (var lap in activity.Laps) lap.Id = 0;
             db.Activities.Add(activity);
             imported++;
             if (++pending >= BatchSize)

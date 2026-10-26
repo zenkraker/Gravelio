@@ -71,6 +71,7 @@ public class Activity
     /// Identifies a recording by its file and start, so uploading the same file again is recognised. Null on activities that predate it.
     public string? DedupKey { get; set; }
     public List<ActivityStream> Streams { get; set; } = [];
+    public List<ActivityLap> Laps { get; set; } = [];
 }
 
 public static class Visibilities
@@ -87,6 +88,33 @@ public class ActivityStream
     public int StreamType { get; set; }
     // Raw JSON array, e.g. [{"time":"...","hr":120}] or [{"time":"...","lat":..,"lon":..}]
     public required string Waypoints { get; set; }
+}
+
+/// One lap of a recording as the device or file reported it. Coordinates are private like the map: see <c>VisibleLaps</c>.
+public class ActivityLap
+{
+    public int Id { get; set; }
+    public int ActivityId { get; set; }
+    public int Index { get; set; }
+    public DateTime StartTime { get; set; }
+    public double? StartLat { get; set; }
+    public double? StartLon { get; set; }
+    public double? EndLat { get; set; }
+    public double? EndLon { get; set; }
+    public double TotalElapsedTime { get; set; }
+    public double? TotalTimerTime { get; set; }
+    public double? Distance { get; set; }
+    public int? AverageHr { get; set; }
+    public int? MaxHr { get; set; }
+    public int? AverageCad { get; set; }
+    public int? MaxCad { get; set; }
+    public int? AveragePower { get; set; }
+    public int? MaxPower { get; set; }
+    public int? ElevationGain { get; set; }
+    public int? ElevationLoss { get; set; }
+    public double? AverageSpeed { get; set; }
+    public double? MaxSpeed { get; set; }
+    public int? Calories { get; set; }
 }
 
 public static class StreamTypes
@@ -425,6 +453,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
 
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityStream> ActivityStreams => Set<ActivityStream>();
+    public DbSet<ActivityLap> ActivityLaps => Set<ActivityLap>();
     public DbSet<Gear> Gears => Set<Gear>();
     public DbSet<GearComponent> GearComponents => Set<GearComponent>();
     public DbSet<DefaultGear> DefaultGears => Set<DefaultGear>();
@@ -548,5 +577,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<UserPrivacySettings>().ToTable(t =>
             t.HasCheckConstraint("CK_UserPrivacySettings_Visibility", "\"DefaultActivityVisibility\" BETWEEN 0 AND 2"));
         b.Entity<Activity>().HasMany(a => a.Streams).WithOne().HasForeignKey(s => s.ActivityId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Activity>().HasMany(a => a.Laps).WithOne().HasForeignKey(l => l.ActivityId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ActivityLap>().HasIndex(l => new { l.ActivityId, l.Index }).IsUnique();
     }
 }

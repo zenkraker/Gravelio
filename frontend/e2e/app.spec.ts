@@ -149,6 +149,50 @@ test('upload an activity, view it, and every page is accessible', async ({ page 
   await expectAccessible(page);
 });
 
+/** A TCX run with two laps of 30 points, unique per run. */
+function tcxWithLaps(name: string): Buffer {
+  const start = Date.now() - 40 * 86_400_000;
+  const iso = (ms: number) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const lap = (n: number) => {
+    const points = Array.from({ length: 30 }, (_, k) => {
+      const i = n * 30 + k;
+      return (
+        `<Trackpoint><Time>${iso(start + i * 10_000)}</Time><Position><LatitudeDegrees>${38.7223 + i * 0.0005}</LatitudeDegrees>` +
+        `<LongitudeDegrees>${-9.1393 + i * 0.0003}</LongitudeDegrees></Position><AltitudeMeters>${100 + i}</AltitudeMeters>` +
+        `<HeartRateBpm><Value>${130 + (i % 15)}</Value></HeartRateBpm></Trackpoint>`
+      );
+    }).join('');
+    return (
+      `<Lap StartTime="${iso(start + n * 300_000)}"><TotalTimeSeconds>300</TotalTimeSeconds><DistanceMeters>1800</DistanceMeters>` +
+      `<AverageHeartRateBpm><Value>${140 + n}</Value></AverageHeartRateBpm><Track>${points}</Track></Lap>`
+    );
+  };
+  return Buffer.from(
+    `<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities>` +
+      `<Activity Sport="Running"><Id>${name}</Id>${lap(0)}${lap(1)}</Activity></Activities></TrainingCenterDatabase>`,
+  );
+}
+
+test('an activity recorded in laps shows a laps table', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/activities');
+  await page.getByLabel('Activity file').setInputFiles({
+    name: 'laps.tcx',
+    mimeType: 'application/vnd.garmin.tcx+xml',
+    buffer: tcxWithLaps(`laps-${Date.now()}`),
+  });
+  await expect(page.getByText('Activity uploaded')).toBeVisible();
+  await page
+    .getByRole('link', { name: /Running|Run/ })
+    .first()
+    .click();
+  const laps = page.getByRole('table', { name: 'Laps' });
+  await expect(laps).toBeVisible();
+  await expect(laps.getByRole('row')).toHaveCount(3);
+  await expect(laps.getByRole('row').nth(2)).toContainText('141');
+  await expectAccessible(page);
+});
+
 test('add gear, give it a component, attach it to an activity; save the profile', async ({
   page,
 }) => {

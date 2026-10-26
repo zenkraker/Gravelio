@@ -2,7 +2,7 @@ import { httpResource } from '@angular/common/http';
 import { Component, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { ActivityStream, PublicActivity } from '../core/api';
+import { ActivityLap, ActivityStream, PublicActivity } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { formatDateTime } from '../core/format';
 import { ActivityView } from '../components/activity-view';
@@ -35,7 +35,11 @@ import { ActivityView } from '../components/activity-view';
         @if (a.description) {
           <p>{{ a.description }}</p>
         }
-        <app-activity-view [activity]="a" [streams]="streams.value() ?? []" />
+        <app-activity-view
+          [activity]="a"
+          [streams]="streams.value() ?? []"
+          [laps]="laps.value() ?? []"
+        />
       }
     </main>
   `,
@@ -66,6 +70,9 @@ export class PublicActivityPage {
 
   protected readonly activity = httpResource<PublicActivity>(
     () => `/api/v1/public/activities/${this.id()}`,
+  );
+  protected readonly laps = httpResource<ActivityLap[]>(() =>
+    this.activity.hasValue() ? `/api/v1/public/activities/${this.id()}/laps` : undefined,
   );
   protected readonly streams = httpResource<ActivityStream[]>(() =>
     this.activity.hasValue() ? `/api/v1/public/activities/${this.id()}/streams` : undefined,

@@ -384,6 +384,31 @@ export interface ActivityPrivateDetails {
   is_hidden: boolean;
 }
 
+/** A lap; whatever the owner hides from this viewer is null. */
+export interface ActivityLap {
+  index: number;
+  start_time: string | null;
+  start_offset: number;
+  start_lat: number | null;
+  start_lon: number | null;
+  end_lat: number | null;
+  end_lon: number | null;
+  total_elapsed_time: number;
+  total_timer_time: number | null;
+  distance: number | null;
+  average_hr: number | null;
+  max_hr: number | null;
+  average_cad: number | null;
+  max_cad: number | null;
+  average_power: number | null;
+  max_power: number | null;
+  elevation_gain: number | null;
+  elevation_loss: number | null;
+  average_speed: number | null;
+  max_speed: number | null;
+  calories: number | null;
+}
+
 export interface Session {
   id: number;
   device: string;

@@ -1,5 +1,6 @@
 import { Component, computed, input } from '@angular/core';
-import { ActivityStream, StreamType } from '../core/api';
+import { MatTableModule } from '@angular/material/table';
+import { ActivityLap, ActivityStream, StreamType } from '../core/api';
 import {
   PACE_TYPES,
   elevationValue,
@@ -38,7 +39,7 @@ export interface ActivityFacts {
 /** The numbers, route map and charts of one activity. Fields the viewer may not see arrive as null and simply don't render. */
 @Component({
   selector: 'app-activity-view',
-  imports: [RouteMap, StreamChart],
+  imports: [MatTableModule, RouteMap, StreamChart],
   template: `
     @let a = activity();
     <dl class="stats">
@@ -131,6 +132,43 @@ export interface ActivityFacts {
         <app-stream-chart i18n-label label="Cadence" [points]="cadence()" />
       }
     </section>
+    @if (laps().length > 1) {
+      <h2 i18n>Laps</h2>
+      <table mat-table [dataSource]="laps()" aria-label="Laps" i18n-aria-label>
+        <ng-container matColumnDef="index">
+          <th mat-header-cell *matHeaderCellDef i18n>Lap</th>
+          <td mat-cell *matCellDef="let l">{{ l.index }}</td>
+        </ng-container>
+        <ng-container matColumnDef="distance">
+          <th mat-header-cell *matHeaderCellDef i18n>Distance</th>
+          <td mat-cell *matCellDef="let l">
+            {{ l.distance === null ? '—' : distance(l.distance) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="time">
+          <th mat-header-cell *matHeaderCellDef i18n>Time</th>
+          <td mat-cell *matCellDef="let l">
+            {{ duration(l.total_timer_time ?? l.total_elapsed_time) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="speed">
+          <th mat-header-cell *matHeaderCellDef>{{ isPace() ? paceLabel : speedLabel }}</th>
+          <td mat-cell *matCellDef="let l">{{ lapSpeed(l) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="hr">
+          <th mat-header-cell *matHeaderCellDef i18n>Avg HR</th>
+          <td mat-cell *matCellDef="let l">{{ l.average_hr ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="elevation">
+          <th mat-header-cell *matHeaderCellDef i18n>Gain</th>
+          <td mat-cell *matCellDef="let l">
+            {{ l.elevation_gain === null ? '—' : elevation(l.elevation_gain) }}
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="lapColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: lapColumns"></tr>
+      </table>
+    }
   `,
   styles: `
     .stats {
@@ -157,7 +195,12 @@ export interface ActivityFacts {
 export class ActivityView {
   readonly activity = input.required<ActivityFacts>();
   readonly streams = input.required<ActivityStream[]>();
+  readonly laps = input<ActivityLap[]>([]);
   readonly units = input<'metric' | 'imperial'>('metric');
+
+  protected readonly lapColumns = ['index', 'distance', 'time', 'speed', 'hr', 'elevation'];
+  protected readonly paceLabel = $localize`Pace`;
+  protected readonly speedLabel = $localize`Speed`;
 
   protected readonly distance = (m: number) => formatDistance(m, this.units());
   protected readonly duration = formatDuration;
@@ -182,6 +225,12 @@ export class ActivityView {
   protected readonly paceSeries = computed(() =>
     this.series(StreamType.Pace, 'pace', (v) => paceSeconds(v, this.units())),
   );
+
+  /** A lap's speed or pace; a speed the owner hides stays a dash, it is never worked out from distance and time. */
+  protected lapSpeed(lap: ActivityLap): string {
+    const v = lap.average_speed;
+    return this.isPace() ? this.pace(v ? 1 / v : null) : this.speed(v);
+  }
 
   private waypoints(type: number) {
     return this.streams().find((s) => s.stream_type === type)?.waypoints ?? [];

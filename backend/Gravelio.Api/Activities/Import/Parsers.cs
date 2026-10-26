@@ -16,6 +16,13 @@ public record DeviceSummary(
     int? AvgHr, int? MaxHr, int? AvgCad, int? MaxCad, int? AvgPower, int? MaxPower, int? NormalizedPower,
     int? ElevationGain, int? ElevationLoss, double? AvgSpeed, double? MaxSpeed);
 
+/// One lap as reported by the file; coordinates are the first and last fix inside the lap.
+public record ParsedLap(
+    System.DateTime StartTime, double TotalElapsedTime, double? TotalTimerTime, double? Distance,
+    double? StartLat, double? StartLon, double? EndLat, double? EndLon,
+    int? AvgHr, int? MaxHr, int? AvgCad, int? MaxCad, int? AvgPower, int? MaxPower,
+    int? ElevationGain, int? ElevationLoss, double? AvgSpeed, double? MaxSpeed, int? Calories);
+
 public class ParsedActivity
 {
     public string? Name { get; set; }
@@ -27,6 +34,7 @@ public class ParsedActivity
     public string? TrackerModel { get; set; }
     public DeviceSummary? Summary { get; set; }
     public List<TrackPoint> Points { get; } = [];
+    public List<ParsedLap> Laps { get; } = [];
 }
 
 public static class ActivityFileParser
@@ -128,6 +136,7 @@ public static class ActivityFileParser
         {
             if (Int(Kid(lap, "Calories")?.Value) is { } c) parsed.Calories = (parsed.Calories ?? 0) + c;
             if (Num(Kid(lap, "DistanceMeters")?.Value) is { } d) parsed.Distance = (parsed.Distance ?? 0) + d;
+            int firstPoint = parsed.Points.Count;
             foreach (var track in Kids(lap, "Track"))
             {
                 foreach (var tp in Kids(track, "Trackpoint"))
@@ -142,6 +151,18 @@ public static class ActivityFileParser
                         watts is 0 ? null : watts, null));
                 }
                 segment++;
+            }
+            if (Time(lap.Attribute("StartTime")?.Value) is { } lapStart)
+            {
+                var fixes = parsed.Points.Skip(firstPoint).Where(p => p.Lat is not null && p.Lon is not null).ToList();
+                var ext = Kid(lap, "Extensions")?.Descendants().ToList() ?? [];
+                double? Ext(string name) => Num(ext.FirstOrDefault(e => e.Name.LocalName == name)?.Value);
+                parsed.Laps.Add(new ParsedLap(lapStart, Num(Kid(lap, "TotalTimeSeconds")?.Value) ?? 0, Num(Kid(lap, "TotalTimeSeconds")?.Value),
+                    Num(Kid(lap, "DistanceMeters")?.Value),
+                    fixes.FirstOrDefault()?.Lat, fixes.FirstOrDefault()?.Lon, fixes.LastOrDefault()?.Lat, fixes.LastOrDefault()?.Lon,
+                    Int(Kid(Kid(lap, "AverageHeartRateBpm"), "Value")?.Value), Int(Kid(Kid(lap, "MaximumHeartRateBpm"), "Value")?.Value),
+                    Int(Kid(lap, "Cadence")?.Value), null, (int?)Ext("AvgWatts"), (int?)Ext("MaxWatts"), null, null,
+                    Ext("AvgSpeed"), Num(Kid(lap, "MaximumSpeed")?.Value), Int(Kid(lap, "Calories")?.Value)));
             }
         }
         if (parsed.Points.Count == 0) throw new InvalidActivityFileException("Invalid TCX file - no trackpoints with valid time data found");
@@ -162,10 +183,12 @@ public static class ActivityFileParser
 
         var records = new List<RecordMesg>();
         var sessions = new List<SessionMesg>();
+        var laps = new List<LapMesg>();
         FileIdMesg? fileId = null;
         var broadcaster = new MesgBroadcaster();
         broadcaster.RecordMesgEvent += (_, e) => records.Add((RecordMesg)e.mesg);
         broadcaster.SessionMesgEvent += (_, e) => sessions.Add((SessionMesg)e.mesg);
+        broadcaster.LapMesgEvent += (_, e) => laps.Add((LapMesg)e.mesg);
         broadcaster.FileIdMesgEvent += (_, e) => fileId ??= (FileIdMesg)e.mesg;
         decode.MesgEvent += broadcaster.OnMesg;
         try
@@ -201,6 +224,17 @@ public static class ActivityFileParser
                 int? lat = r.GetPositionLat(), lon = r.GetPositionLong();
                 parsed.Points.Add(new TrackPoint(t, index, lat * SemicirclesToDegrees, lon * SemicirclesToDegrees,
                     Elevation(r.GetEnhancedAltitude() ?? r.GetAltitude()), r.GetHeartRate(), r.GetCadence(), r.GetPower(), r.GetTemperature()));
+            }
+            foreach (var l in laps)
+            {
+                var lapStart = l.GetStartTime()?.GetDateTime() ?? l.GetTimestamp().GetDateTime();
+                if (lapStart < start || lapStart > end) continue;
+                int? lat = l.GetStartPositionLat(), lon = l.GetStartPositionLong(), endLat = l.GetEndPositionLat(), endLon = l.GetEndPositionLong();
+                parsed.Laps.Add(new ParsedLap(lapStart, l.GetTotalElapsedTime() ?? 0, l.GetTotalTimerTime(), l.GetTotalDistance(),
+                    lat * SemicirclesToDegrees, lon * SemicirclesToDegrees, endLat * SemicirclesToDegrees, endLon * SemicirclesToDegrees,
+                    l.GetAvgHeartRate(), l.GetMaxHeartRate(), l.GetAvgCadence(), l.GetMaxCadence(), l.GetAvgPower(), l.GetMaxPower(),
+                    l.GetTotalAscent(), l.GetTotalDescent(), l.GetEnhancedAvgSpeed() ?? l.GetAvgSpeed(), l.GetEnhancedMaxSpeed() ?? l.GetMaxSpeed(),
+                    l.GetTotalCalories()));
             }
             result.Add(parsed);
         }

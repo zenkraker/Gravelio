@@ -67,7 +67,7 @@ public sealed class ExportDataEndpoint(AppDb db, UserManager<User> users, TimePr
             for (var n = 0; n < ids.Count; n++)
             {
                 var id = ids[n];
-                var activity = await db.Activities.AsNoTracking().Include(a => a.Streams).Where(a => a.Id == id).FirstAsync(ct);
+                var activity = await db.Activities.AsNoTracking().Include(a => a.Streams).Include(a => a.Laps).Where(a => a.Id == id).FirstAsync(ct);
                 await WriteAsync(zip, $"activities/{n + 1}.json", activity, ct);
             }
         }

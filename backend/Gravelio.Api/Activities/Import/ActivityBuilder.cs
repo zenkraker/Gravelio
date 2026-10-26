@@ -91,6 +91,30 @@ public static class ActivityBuilder
             TrackerModel = p.TrackerModel,
         };
 
+        activity.Laps.AddRange(p.Laps.OrderBy(l => l.StartTime).Select((l, i) => new ActivityLap
+        {
+            Index = i + 1,
+            StartTime = TruncateToSecond(l.StartTime),
+            StartLat = l.StartLat,
+            StartLon = l.StartLon,
+            EndLat = l.EndLat,
+            EndLon = l.EndLon,
+            TotalElapsedTime = l.TotalElapsedTime,
+            TotalTimerTime = l.TotalTimerTime,
+            Distance = l.Distance,
+            AverageHr = l.AvgHr,
+            MaxHr = l.MaxHr,
+            AverageCad = l.AvgCad,
+            MaxCad = l.MaxCad,
+            AveragePower = l.AvgPower,
+            MaxPower = l.MaxPower,
+            ElevationGain = l.ElevationGain,
+            ElevationLoss = l.ElevationLoss,
+            AverageSpeed = l.AvgSpeed,
+            MaxSpeed = l.MaxSpeed,
+            Calories = l.Calories,
+        }));
+
         void Add(int streamType, IEnumerable<object> waypoints)
         {
             var list = waypoints.ToList();

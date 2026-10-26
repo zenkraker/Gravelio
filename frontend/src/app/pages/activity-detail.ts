@@ -11,7 +11,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Activity, ActivityStream, Gear, Paged, PublicSettings, problemMessage } from '../core/api';
+import {
+  Activity,
+  ActivityLap,
+  ActivityStream,
+  Gear,
+  Paged,
+  PublicSettings,
+  problemMessage,
+} from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
 import { AuthService } from '../core/auth';
 import { formatDateTime } from '../core/format';
@@ -95,7 +103,12 @@ import { ActivityView } from '../components/activity-view';
       @if (isOwner()) {
         <app-activity-edit [activity]="a" (saved)="activity.reload()" />
       }
-      <app-activity-view [activity]="a" [streams]="streams.value() ?? []" [units]="units()" />
+      <app-activity-view
+        [activity]="a"
+        [streams]="streams.value() ?? []"
+        [laps]="laps.value() ?? []"
+        [units]="units()"
+      />
     }
   `,
   styles: `
@@ -137,6 +150,7 @@ export class ActivityDetail {
   private readonly gears = httpResource<Paged<Gear>>(() =>
     this.isOwner() ? { url: '/api/v1/gears', params: { page_size: 100 } } : undefined,
   );
+  private readonly laps = httpResource<ActivityLap[]>(() => `/api/v1/activities/${this.id()}/laps`);
   private readonly streams = httpResource<ActivityStream[]>(
     () => `/api/v1/activities/${this.id()}/streams`,
   );

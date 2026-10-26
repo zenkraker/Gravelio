@@ -150,6 +150,85 @@ namespace Gravelio.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.ActivityLap", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AverageCad")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AverageHr")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AveragePower")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("AverageSpeed")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("Calories")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("Distance")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("ElevationGain")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ElevationLoss")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("EndLat")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("EndLon")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxCad")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxHr")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxPower")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("MaxSpeed")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("StartLat")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("StartLon")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("TotalElapsedTime")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("TotalTimerTime")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId", "Index")
+                        .IsUnique();
+
+                    b.ToTable("ActivityLaps");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.ActivityStream", b =>
                 {
                     b.Property<int>("Id")
@@ -1290,6 +1369,15 @@ namespace Gravelio.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.ActivityLap", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.Activity", null)
+                        .WithMany("Laps")
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.ActivityStream", b =>
                 {
                     b.HasOne("Gravelio.Api.Data.Activity", null)
@@ -1544,6 +1632,8 @@ namespace Gravelio.Api.Data.Migrations
 
             modelBuilder.Entity("Gravelio.Api.Data.Activity", b =>
                 {
+                    b.Navigation("Laps");
+
                     b.Navigation("Streams");
                 });
 
