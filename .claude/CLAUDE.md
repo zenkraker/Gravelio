@@ -33,6 +33,8 @@ pnpm e2e                 # Playwright + axe against the running app (needs the A
 E2E_BASE_URL=http://localhost:8080 E2E_ADMIN_PASSWORD=… pnpm e2e   # same suite against the Docker stack
 ```
 
+Dev container (`.devcontainer/`, Node LTS, .NET 10, Docker-in-Docker for Testcontainers): Claude Code (`CLAUDE_CONFIG_DIR`), opencode, pnpm and NuGet state live in named volumes, never on the host; `post-create.sh` installs codegraph, opencode and the ponytail plugin, and `post-start.sh` runs the dev Postgres. Don't mount host secrets (`~/.ssh`, cloud credentials) into it.
+
 Android app (`frontend/android`, Capacitor; needs Android Studio and its SDK, JDK 21):
 
 ```bash
