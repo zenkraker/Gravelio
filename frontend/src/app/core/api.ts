@@ -409,6 +409,24 @@ export interface ActivityLap {
   calories: number | null;
 }
 
+export interface HrZone {
+  zone: number;
+  percent: number;
+  seconds: number;
+  /** The zone's heart-rate limits; only the owner gets them. */
+  range: string | null;
+}
+
+export interface DailyStats {
+  date: string;
+  sleep: { total_sleep_seconds: number | null; resting_heart_rate: number | null } | null;
+  weight: { weight: number; bmi: number | null } | null;
+  steps: number | null;
+  fasting: { status: string; fast_start_time: string } | null;
+  water_ml: number | null;
+  poop_count: number;
+}
+
 export interface Session {
   id: number;
   device: string;

@@ -44,6 +44,7 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o => o.DocumentSettings = s 
 // Every error body, including unhandled exceptions and bare 401/404/429 responses, is ASP.NET Core's own problem details.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
+builder.Services.AddExceptionHandler<ConcurrencyExceptionHandler>();
 builder.Services.AddGravelioRateLimiting();
 
 // Telemetry is always collected; it only leaves the process when an OTLP endpoint is configured.

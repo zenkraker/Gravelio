@@ -539,6 +539,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
         b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
+        // PostgreSQL's per-row version: the ETag of an activity or gear, and what makes a stale save fail instead of overwrite.
+        b.Entity<Activity>().Property<uint>("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
+        b.Entity<Gear>().Property<uint>("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
         b.Entity<ApiKey>().HasOne(k => k.User).WithMany().HasForeignKey(k => k.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();
         b.Entity<ApiKey>().HasIndex(k => k.UserId);

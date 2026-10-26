@@ -383,16 +383,21 @@ export class GearDetail {
     await submit(this.gf, async () => {
       try {
         const v = this.gearModel();
+        const etag = this.gear.headers()?.get('ETag');
         await firstValueFrom(
-          this.http.put(`/api/v1/gears/${this.id()}`, {
-            nickname: v.nickname,
-            gear_type: Number(v.gearType),
-            brand: v.brand || null,
-            model: v.model || null,
-            active: v.active,
-            initial_distance: displayToMeters(Number(v.initialDistance) || 0, this.units()),
-            purchase_value: v.purchaseValue === '' ? null : Number(v.purchaseValue),
-          }),
+          this.http.put(
+            `/api/v1/gears/${this.id()}`,
+            {
+              nickname: v.nickname,
+              gear_type: Number(v.gearType),
+              brand: v.brand || null,
+              model: v.model || null,
+              active: v.active,
+              initial_distance: displayToMeters(Number(v.initialDistance) || 0, this.units()),
+              purchase_value: v.purchaseValue === '' ? null : Number(v.purchaseValue),
+            },
+            etag ? { headers: { 'If-Match': etag } } : {},
+          ),
         );
         this.gear.reload();
         this.snack.open($localize`Gear saved`, undefined, { duration: 4000 });

@@ -16,6 +16,7 @@ import {
   ActivityLap,
   ActivityStream,
   Gear,
+  HrZone,
   Paged,
   PublicSettings,
   problemMessage,
@@ -101,12 +102,17 @@ import { ActivityView } from '../components/activity-view';
         </div>
       }
       @if (isOwner()) {
-        <app-activity-edit [activity]="a" (saved)="activity.reload()" />
+        <app-activity-edit
+          [activity]="a"
+          [etag]="activity.headers()?.get('ETag') ?? null"
+          (saved)="activity.reload()"
+        />
       }
       <app-activity-view
         [activity]="a"
         [streams]="streams.value() ?? []"
         [laps]="laps.value() ?? []"
+        [hrZones]="hrZones.value() ?? []"
         [units]="units()"
       />
     }
@@ -149,6 +155,9 @@ export class ActivityDetail {
   protected readonly activity = httpResource<Activity>(() => `/api/v1/activities/${this.id()}`);
   private readonly gears = httpResource<Paged<Gear>>(() =>
     this.isOwner() ? { url: '/api/v1/gears', params: { page_size: 100 } } : undefined,
+  );
+  private readonly hrZones = httpResource<HrZone[]>(
+    () => `/api/v1/activities/${this.id()}/hr-zones`,
   );
   private readonly laps = httpResource<ActivityLap[]>(() => `/api/v1/activities/${this.id()}/laps`);
   private readonly streams = httpResource<ActivityStream[]>(

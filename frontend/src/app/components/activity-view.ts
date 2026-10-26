@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
-import { ActivityLap, ActivityStream, StreamType } from '../core/api';
+import { ActivityLap, ActivityStream, HrZone, StreamType } from '../core/api';
 import {
   PACE_TYPES,
   elevationValue,
@@ -39,7 +40,7 @@ export interface ActivityFacts {
 /** The numbers, route map and charts of one activity. Fields the viewer may not see arrive as null and simply don't render. */
 @Component({
   selector: 'app-activity-view',
-  imports: [MatTableModule, RouteMap, StreamChart],
+  imports: [MatProgressBarModule, MatTableModule, RouteMap, StreamChart],
   template: `
     @let a = activity();
     <dl class="stats">
@@ -132,6 +133,22 @@ export interface ActivityFacts {
         <app-stream-chart i18n-label label="Cadence" [points]="cadence()" />
       }
     </section>
+    @if (hrZones().length) {
+      <h2 i18n>Heart rate zones</h2>
+      <ul class="zones">
+        @for (z of hrZones(); track z.zone) {
+          <li>
+            <span class="zone-name">{{ zoneLabel(z) }}</span>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="z.percent"
+              [attr.aria-label]="zoneLabel(z)"
+            />
+            <span class="zone-value">{{ z.percent }}% · {{ duration(z.seconds) }}</span>
+          </li>
+        }
+      </ul>
+    }
     @if (laps().length > 1) {
       <h2 i18n>Laps</h2>
       <table mat-table [dataSource]="laps()" aria-label="Laps" i18n-aria-label>
@@ -185,6 +202,18 @@ export interface ActivityFacts {
       margin: 0;
       font: var(--mat-sys-title-large);
     }
+    .zones {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .zones li {
+      display: grid;
+      grid-template-columns: minmax(120px, 200px) 1fr minmax(110px, auto);
+      align-items: center;
+      gap: 12px;
+    }
     .charts {
       display: grid;
       gap: 24px;
@@ -196,6 +225,7 @@ export class ActivityView {
   readonly activity = input.required<ActivityFacts>();
   readonly streams = input.required<ActivityStream[]>();
   readonly laps = input<ActivityLap[]>([]);
+  readonly hrZones = input<HrZone[]>([]);
   readonly units = input<'metric' | 'imperial'>('metric');
 
   protected readonly lapColumns = ['index', 'distance', 'time', 'speed', 'hr', 'elevation'];
@@ -225,6 +255,10 @@ export class ActivityView {
   protected readonly paceSeries = computed(() =>
     this.series(StreamType.Pace, 'pace', (v) => paceSeconds(v, this.units())),
   );
+
+  protected zoneLabel(z: HrZone): string {
+    return z.range ? $localize`Zone ${z.zone} (${z.range} bpm)` : $localize`Zone ${z.zone}`;
+  }
 
   /** A lap's speed or pace; a speed the owner hides stays a dash, it is never worked out from distance and time. */
   protected lapSpeed(lap: ActivityLap): string {

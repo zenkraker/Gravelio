@@ -1,5 +1,6 @@
 using FastEndpoints;
 using Gravelio.Api.Auth;
+using Gravelio.Api.Common;
 using Gravelio.Api.Data;
 using Gravelio.Api.Privacy;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public sealed class GetActivityEndpoint(AppDb db) : Endpoint<IdRequest, Activity
         }
         if (activity.Owner.Id != me)
             activity = PrivacyMask.Apply(activity, await PrivacyMask.ForOwnerAsync(db, activity.Owner.Id, ct), false);
+        ETags.Set(HttpContext.Response, await db.Activities.Where(a => a.Id == req.Id).Select(a => EF.Property<uint>(a, "xmin")).FirstAsync(ct));
         await Send.OkAsync(activity, ct);
     }
 }

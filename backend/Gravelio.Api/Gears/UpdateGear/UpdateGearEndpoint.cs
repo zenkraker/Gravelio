@@ -1,6 +1,7 @@
 using FastEndpoints;
 using FluentValidation;
 using Gravelio.Api.Auth;
+using Gravelio.Api.Common;
 using Gravelio.Api.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,8 @@ public sealed class UpdateGearEndpoint(AppDb db) : Endpoint<UpdateGearRequest, G
             await Send.NotFoundAsync(ct);
             return;
         }
+        var version = db.Entry(gear).Property<uint>("xmin");
+        if (!ETags.Satisfied(HttpContext.Request, version.CurrentValue)) ThrowError(ETags.Changed, StatusCodes.Status412PreconditionFailed);
         if (req.GearType != gear.GearType)
         {
             // Components and default-gear slots are tied to the gear type, so a type change must not strand them.
@@ -31,6 +34,7 @@ public sealed class UpdateGearEndpoint(AppDb db) : Endpoint<UpdateGearRequest, G
         (gear.Nickname, gear.Brand, gear.Model, gear.GearType, gear.Active, gear.InitialDistance, gear.PurchaseValue) =
             (req.Nickname.Trim(), req.Brand, req.Model, req.GearType, req.Active, req.InitialDistance, req.PurchaseValue);
         await db.SaveChangesAsync(ct);
+        ETags.Set(HttpContext.Response, version.CurrentValue);
         await Send.OkAsync(await db.Gears.AsNoTracking().Where(g => g.Id == gear.Id).ToRead(db).FirstAsync(ct), ct);
     }
 }

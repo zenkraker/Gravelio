@@ -142,6 +142,8 @@ const HIDE_OPTIONS = [
 })
 export class ActivityEdit {
   readonly activity = input.required<Activity>();
+  /** The version the activity was loaded at; a save of a stale one is refused instead of overwriting a newer edit. */
+  readonly etag = input<string | null>(null);
   readonly saved = output<void>();
 
   private http = inject(HttpClient);
@@ -181,6 +183,11 @@ export class ActivityEdit {
     this.hidden.update((all) => (on ? [...all, id] : all.filter((x) => x !== id)));
   }
 
+  private ifMatch(): { headers: Record<string, string> } | Record<string, never> {
+    const etag = this.etag();
+    return etag ? { headers: { 'If-Match': etag } } : {};
+  }
+
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
     this.error.set('');
@@ -189,12 +196,16 @@ export class ActivityEdit {
         const a = this.activity();
         const m = this.model();
         await firstValueFrom(
-          this.http.put(`/api/v1/activities/${a.id}`, {
-            name: m.name,
-            description: m.description || null,
-            activity_type: Number(m.type),
-            visibility: a.visibility,
-          }),
+          this.http.put(
+            `/api/v1/activities/${a.id}`,
+            {
+              name: m.name,
+              description: m.description || null,
+              activity_type: Number(m.type),
+              visibility: a.visibility,
+            },
+            this.ifMatch(),
+          ),
         );
         await firstValueFrom(
           this.http.put(`/api/v1/activities/${a.id}/private`, {

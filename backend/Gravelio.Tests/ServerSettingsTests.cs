@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Gravelio.Api.Email;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Gravelio.Tests;
 
@@ -240,5 +244,34 @@ public class ServerSettingsTests(ApiFixture api)
         {
             await SaveAsync(admin, false);
         }
+    }
+
+    sealed class NoEmail : IEmailSender
+    {
+        public bool IsConfigured => false;
+
+        public Task SendAsync(string to, string subject, string body, CancellationToken ct) => throw new InvalidOperationException("not configured");
+    }
+
+    [Fact]
+    public async Task The_test_email_goes_to_the_admins_own_address_and_only_when_email_is_set_up()
+    {
+        var admin = await api.LoginAsync();
+        api.Email.Clear();
+        var address = (await admin.GetJsonAsync<JsonElement>("/api/v1/users/me")).GetProperty("email").GetString();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.Http.PostAsync("/api/v1/server-settings/email/test", null)).StatusCode);
+        Assert.Equal(address, Assert.Single(api.Email.Sent).To);
+
+        var regularName = $"settings.mail.{Guid.NewGuid():N}"[..22];
+        await api.CreateUserAsync(admin, regularName);
+        var regular = await api.LoginAsync(regularName, "Str0ng-pass!");
+        Assert.Equal(HttpStatusCode.Forbidden, (await regular.Http.PostAsync("/api/v1/server-settings/email/test", null)).StatusCode);
+
+        using var factory = api.WithWebHostBuilder(b => b.ConfigureTestServices(s => { s.RemoveAll<IEmailSender>(); s.AddSingleton<IEmailSender>(new NoEmail()); }));
+        var unset = new ApiClient(factory.CreateClient());
+        await unset.SyncXsrfAsync();
+        Assert.Equal(HttpStatusCode.NoContent, (await unset.Http.PostAsJsonAsync("/api/v1/auth/login", new { Username = "admin", Password = ApiFixture.AdminPassword }, ApiClient.Json)).StatusCode);
+        await unset.SyncXsrfAsync();
+        Assert.Equal(HttpStatusCode.Conflict, (await unset.Http.PostAsync("/api/v1/server-settings/email/test", null)).StatusCode);
     }
 }

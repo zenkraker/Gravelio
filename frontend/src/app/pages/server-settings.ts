@@ -77,6 +77,15 @@ type SettingKey = keyof ServerSettings;
             </mat-checkbox>
           </div>
           <button mat-flat-button type="button" (click)="save()" i18n>Save settings</button>
+          <button
+            mat-button
+            type="button"
+            [disabled]="!emailConfigured()"
+            (click)="sendTestEmail()"
+            i18n
+          >
+            Send a test email
+          </button>
         } @else if (!settings.error()) {
           <p i18n>Loading settings…</p>
         }
@@ -130,6 +139,15 @@ export class ServerSettingsPage {
 
   protected set(key: SettingKey, value: boolean): void {
     this.model.update((m) => (m ? { ...m, [key]: value } : m));
+  }
+
+  protected async sendTestEmail(): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post('/api/v1/server-settings/email/test', {}));
+      this.snack.open($localize`Test email sent to your address`, undefined, { duration: 4000 });
+    } catch (err) {
+      this.snack.open(problemMessage(err), $localize`Dismiss`, { duration: 8000 });
+    }
   }
 
   protected async save(): Promise<void> {

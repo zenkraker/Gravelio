@@ -16,6 +16,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Activity, Paged, problemMessage } from '../core/api';
 import { ActivityTypes } from '../core/activity-types';
+import { HealthToday } from '../components/health-today';
 import { AuthService } from '../core/auth';
 import {
   PACE_TYPES,
@@ -40,6 +41,7 @@ interface StravaImportResult {
   selector: 'app-activities',
   providers: [OUTLINE_FIELDS],
   imports: [
+    HealthToday,
     RouterLink,
     FormField,
     MatFormFieldModule,
@@ -99,6 +101,7 @@ interface StravaImportResult {
       </mat-button-toggle-group>
     </div>
     @if (scope() === 'mine') {
+      <app-health-today />
       <form class="filters" novalidate (submit)="applyFilters($event)">
         <mat-form-field>
           <mat-label i18n>Search by name</mat-label>

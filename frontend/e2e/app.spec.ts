@@ -876,6 +876,84 @@ test('edit an activity: name, private notes and what to hide', async ({ page }) 
   await expectAccessible(page);
 });
 
+test('a save from a stale tab is refused instead of overwriting the newer edit', async ({
+  page,
+}) => {
+  await signIn(page);
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    multipart: {
+      file: {
+        name: 'tabs.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: gpx('E2E two tabs', 'running', 5),
+      },
+    },
+  });
+  const [activity] = await upload.json();
+
+  const second = await page.context().newPage();
+  await page.goto(`/activities/${activity.id}`);
+  await second.goto(`/activities/${activity.id}`);
+  for (const tab of [page, second]) {
+    await expect(tab.getByRole('heading', { name: 'E2E two tabs', level: 1 })).toBeVisible();
+    await tab.getByRole('button', { name: 'Edit details' }).click();
+  }
+
+  await page.getByLabel('Name', { exact: true }).fill('First tab wins');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Activity saved')).toBeVisible();
+
+  await second.getByLabel('Name', { exact: true }).fill('Second tab loses');
+  await second.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(second.getByRole('alert')).toContainText('changed somewhere else');
+  await second.reload();
+  await expect(second.getByRole('heading', { name: 'First tab wins', level: 1 })).toBeVisible();
+  await second.close();
+});
+
+test('heart rate zones on an activity and today’s numbers on the home page', async ({ page }) => {
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  const me = await (await page.request.get('/api/v1/users/me')).json();
+  expect(
+    (
+      await page.request.put('/api/v1/users/me', { headers, data: { ...me, max_heart_rate: 180 } })
+    ).ok(),
+  ).toBe(true);
+  const upload = await page.request.post('/api/v1/activities/upload', {
+    headers,
+    multipart: {
+      file: {
+        name: 'zones.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: gpx('E2E zones', 'running', 6),
+      },
+    },
+  });
+  const [activity] = await upload.json();
+
+  await page.goto(`/activities/${activity.id}`);
+  await expect(page.getByRole('heading', { name: 'Heart rate zones' })).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: /Zone 1 \(< 108 bpm\)/ })).toBeVisible();
+  await expectAccessible(page);
+
+  const today = new Date().toISOString().slice(0, 10);
+  expect(
+    (
+      await page.request.post('/api/v1/health/steps', {
+        headers,
+        data: { date: today, steps: 4321 },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto('/activities');
+  const section = page.getByRole('region', { name: 'Today' });
+  await expect(section.getByRole('link', { name: 'Steps' })).toBeVisible();
+  await expect(section).toContainText('4,321');
+  await expectAccessible(page);
+});
+
 test('make an API key, upload with it, then revoke and delete it', async ({ page, request }) => {
   const username = `e2e.keys${Date.now()}`;
   const password = 'Str0ng-pass!';
