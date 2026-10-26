@@ -12,6 +12,9 @@ public class User : IdentityUser<int>
     /// Signed up while an admin has to approve new accounts; stays inactive until then, which is different from a deactivated account.
     public bool PendingApproval { get; set; }
 
+    /// True while a row exists in <c>UserPhotos</c>, so lists can say whether to ask for a picture without joining the bytes.
+    public bool HasPhoto { get; set; }
+
     public string? City { get; set; }
     public DateOnly? Birthdate { get; set; }
     public string PreferredLanguage { get; set; } = "en";
@@ -236,6 +239,14 @@ public class UserSession
     public DateTime CreatedAt { get; set; }
     public DateTime LastSeenAt { get; set; }
     public DateTime ExpiresAt { get; set; }
+}
+
+/// A person's profile picture: a sanitised JPEG, small enough to keep in the database next to the account it belongs to.
+public class UserPhoto
+{
+    public int UserId { get; set; }
+    public required byte[] Data { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public class ApiKey
@@ -469,6 +480,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<UserPhoto> UserPhotos => Set<UserPhoto>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
@@ -545,6 +557,8 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<ApiKey>().HasOne(k => k.User).WithMany().HasForeignKey(k => k.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();
         b.Entity<ApiKey>().HasIndex(k => k.UserId);
+        b.Entity<UserPhoto>().HasKey(p => p.UserId);
+        b.Entity<UserPhoto>().HasOne<User>().WithOne().HasForeignKey<UserPhoto>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UserSession>().HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UserSession>().HasIndex(s => s.Key).IsUnique();
         b.Entity<UserSession>().HasIndex(s => s.UserId);

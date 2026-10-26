@@ -1,3 +1,4 @@
+import { Avatar } from '../components/avatar';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -19,6 +20,7 @@ const PAGE_SIZE = 20;
   selector: 'app-people',
   providers: [OUTLINE_FIELDS],
   imports: [
+    Avatar,
     RouterLink,
     MatButtonModule,
     MatCardModule,
@@ -103,6 +105,7 @@ const PAGE_SIZE = 20;
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef i18n>Name</th>
         <td mat-cell *matCellDef="let p">
+          <app-avatar [userId]="p.id" [name]="p.name" [hasPhoto]="p.has_photo" [size]="24" />
           <a [routerLink]="['/people', p.id]">{{ p.name }}</a>
         </td>
       </ng-container>

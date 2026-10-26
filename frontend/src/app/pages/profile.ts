@@ -1,3 +1,4 @@
+import { ProfilePhoto } from '../components/profile-photo';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -26,6 +27,7 @@ type BooleanPrivacyKey = {
   providers: [OUTLINE_FIELDS],
   imports: [
     DataTransfer,
+    ProfilePhoto,
     RouterLink,
     FormField,
     MatButtonModule,
@@ -43,6 +45,7 @@ type BooleanPrivacyKey = {
         <a mat-button [routerLink]="['/people', auth.user()?.id]" i18n>View public profile</a>
       </span>
     </header>
+    <app-profile-photo />
     <mat-card appearance="outlined">
       <mat-card-content>
         <form novalidate (submit)="saveProfile($event)">

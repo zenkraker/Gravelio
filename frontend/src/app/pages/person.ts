@@ -1,3 +1,4 @@
+import { Avatar } from '../components/avatar';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 20;
 @Component({
   selector: 'app-person',
   imports: [
+    Avatar,
     RouterLink,
     MatButtonModule,
     MatCardModule,
@@ -33,6 +35,12 @@ const PAGE_SIZE = 20;
     }
     @if (profile.value(); as p) {
       <header>
+        <app-avatar
+          [userId]="p.person.id"
+          [name]="p.person.name"
+          [hasPhoto]="p.person.has_photo"
+          [size]="64"
+        />
         <div>
           <h1>{{ p.person.name }}</h1>
           <p>

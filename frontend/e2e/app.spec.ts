@@ -954,6 +954,51 @@ test('heart rate zones on an activity and today’s numbers on the home page', a
   await expectAccessible(page);
 });
 
+test('set a profile picture, see it next to the name, then remove it', async ({ page }) => {
+  const username = `e2e.photo${Date.now()}`;
+  await signIn(page);
+  const headers = { 'X-XSRF-TOKEN': await xsrf(page) };
+  expect(
+    (
+      await page.request.post('/api/v1/users', {
+        headers,
+        data: {
+          name: 'E2E Photo',
+          username,
+          email: `${username}@example.com`,
+          access_type: 'regular',
+          active: true,
+          password: 'Str0ng-pass!',
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  await signOut(page);
+
+  await signIn(page, username, 'Str0ng-pass!');
+  await page.getByRole('link', { name: /E2E Photo/ }).click();
+  await expect(page.getByRole('heading', { name: 'Profile picture' })).toBeVisible();
+  const pixel = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page
+    .getByLabel('Picture file')
+    .setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: pixel });
+  await expect(page.getByText('Picture saved')).toBeVisible();
+  // The browser cropped and re-encoded it to a JPEG; the toolbar and the profile now show it.
+  const pictures = page.locator('img[src*="/photo"]');
+  await expect(pictures).toHaveCount(2);
+  await expect(pictures.first()).toHaveJSProperty('complete', true);
+  expect(await pictures.first().evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(256);
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Remove picture' }).click();
+  await expect(page.getByText('Picture removed')).toBeVisible();
+  await expect(pictures).toHaveCount(0);
+  await expectAccessible(page);
+});
+
 test('make an API key, upload with it, then revoke and delete it', async ({ page, request }) => {
   const username = `e2e.keys${Date.now()}`;
   const password = 'Str0ng-pass!';

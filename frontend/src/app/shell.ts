@@ -1,3 +1,4 @@
+import { Avatar } from './components/avatar';
 import { Component, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
@@ -12,6 +13,7 @@ import { Notifications } from './core/notifications';
 @Component({
   selector: 'app-shell',
   imports: [
+    Avatar,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
@@ -108,7 +110,10 @@ import { Notifications } from './core/notifications';
       </nav>
       <span class="spacer"></span>
       <a mat-button routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">
-        <mat-icon aria-hidden="true">person</mat-icon>{{ auth.user()?.name }}
+        @if (auth.user(); as me) {
+          <app-avatar [userId]="me.id" [name]="me.name" [hasPhoto]="me.has_photo" [size]="24" />
+          {{ me.name }}
+        }
       </a>
       <button mat-button type="button" (click)="auth.logout()" i18n>Sign out</button>
     </mat-toolbar>

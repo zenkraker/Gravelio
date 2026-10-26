@@ -111,6 +111,7 @@ public class LapTests(ApiFixture api)
         var laps = await owner.GetJsonAsync<JsonElement[]>($"/api/v1/activities/{id}/laps");
         Assert.Equal([1, 2], laps.Select(l => l.GetProperty("index").GetInt32()));
         Assert.Equal(300, laps[1].GetProperty("start_offset").GetDouble());
+        Assert.Equal(6, laps[1].GetProperty("average_speed").GetDouble()); // 1800 m in 300 s, worked out because the file gave none
         Assert.Equal(141, laps[1].GetProperty("average_hr").GetInt32());
 
         var admin = await api.LoginAsync();

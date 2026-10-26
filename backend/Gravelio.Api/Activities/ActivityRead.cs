@@ -22,7 +22,7 @@ public sealed record ActivityRead(int Id, string? Name, string? Description, int
         a.ActivityType, a.StartTime, a.EndTime, a.Timezone, a.TotalElapsedTime, a.TotalTimerTime, a.ElevationGain, a.ElevationLoss, a.Pace,
         a.AverageSpeed, a.MaxSpeed, a.AveragePower, a.MaxPower, a.NormalizedPower, a.AverageHr, a.MaxHr, a.AverageCad, a.MaxCad, a.Calories,
         a.Visibility, a.TrackerManufacturer, a.TrackerModel, a.CreatedAt, a.GearId,
-        new PersonRead(a.User.Id, a.User.Name, a.User.UserName!, a.User.City), a.HiddenDetails, a.IsHidden);
+        new PersonRead(a.User.Id, a.User.Name, a.User.UserName!, a.User.City, a.User.HasPhoto), a.HiddenDetails, a.IsHidden);
 
     public static ActivityRead From(Activity a, PersonRead owner) => new(a.Id, a.Name, a.Description, a.Distance, a.ActivityType, a.StartTime,
         a.EndTime, a.Timezone, a.TotalElapsedTime, a.TotalTimerTime, a.ElevationGain, a.ElevationLoss, a.Pace, a.AverageSpeed, a.MaxSpeed,

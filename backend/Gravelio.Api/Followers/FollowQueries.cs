@@ -8,8 +8,8 @@ public static class FollowQueries
 {
     public static IQueryable<FollowRead> ToRead(this IQueryable<Follow> follows) =>
         follows.Select(f => new FollowRead(f.FollowerId, f.FolloweeId, f.Status,
-            new PersonRead(f.Follower.Id, f.Follower.Name, f.Follower.UserName!, f.Follower.City),
-            new PersonRead(f.Followee.Id, f.Followee.Name, f.Followee.UserName!, f.Followee.City)));
+            new PersonRead(f.Follower.Id, f.Follower.Name, f.Follower.UserName!, f.Follower.City, f.Follower.HasPhoto),
+            new PersonRead(f.Followee.Id, f.Followee.Name, f.Followee.UserName!, f.Followee.City, f.Followee.HasPhoto)));
 
     public static IQueryable<int> AcceptedFolloweeIds(this IQueryable<Follow> follows, int followerId) =>
         follows.Where(f => f.FollowerId == followerId && f.Status == FollowStatuses.Accepted).Select(f => f.FolloweeId);

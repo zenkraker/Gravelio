@@ -1058,6 +1058,9 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("HasPhoto")
+                        .HasColumnType("boolean");
+
                     b.Property<int?>("Height")
                         .HasColumnType("integer");
 
@@ -1126,6 +1129,23 @@ namespace Gravelio.Api.Data.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.UserPhoto", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserPhotos");
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.UserPrivacySettings", b =>
@@ -1567,6 +1587,15 @@ namespace Gravelio.Api.Data.Migrations
                     b.HasOne("Gravelio.Api.Data.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.UserPhoto", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithOne()
+                        .HasForeignKey("Gravelio.Api.Data.UserPhoto", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

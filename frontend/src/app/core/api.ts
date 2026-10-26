@@ -19,6 +19,7 @@ export interface User {
   currency: 'euro' | 'dollar' | 'pound';
   mfa_enabled: boolean;
   pending_approval: boolean;
+  has_photo: boolean;
 }
 
 export interface MfaStatus {
@@ -73,6 +74,7 @@ export interface Person {
   name: string;
   username: string;
   city: string | null;
+  has_photo: boolean;
 }
 
 export interface Follow {

@@ -110,7 +110,8 @@ public static class ActivityBuilder
             MaxPower = l.MaxPower,
             ElevationGain = l.ElevationGain,
             ElevationLoss = l.ElevationLoss,
-            AverageSpeed = l.AvgSpeed,
+            // A device that reports no lap speed still gave a distance and a time.
+            AverageSpeed = l.AvgSpeed ?? (l.Distance > 0 && (l.TotalTimerTime ?? l.TotalElapsedTime) > 0 ? l.Distance / (l.TotalTimerTime ?? l.TotalElapsedTime) : null),
             MaxSpeed = l.MaxSpeed,
             Calories = l.Calories,
         }));
