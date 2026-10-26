@@ -6,4 +6,5 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gravelio.Api.Users;
 
-public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+/// <see cref="Code"/> (authenticator or recovery code) is required while the account has MFA on.
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string? Code = null);

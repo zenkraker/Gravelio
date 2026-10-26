@@ -162,6 +162,16 @@ public class PasswordResetToken
     public DateTime CreatedAt { get; set; }
 }
 
+/// An authenticator code that has already signed someone in or confirmed a change. A code stays valid for a couple of minutes,
+/// and RFC 6238 §5.2 forbids accepting it twice; the unique index also rejects two parallel submissions.
+public class UsedTotpCode
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public required string Code { get; set; }
+    public DateTime UsedAt { get; set; }
+}
+
 /// Instance-wide settings. Exactly one row exists once anything has been saved; a missing row means all defaults.
 public class ServerSettings
 {
@@ -357,6 +367,7 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
     public DbSet<Follow> Follows => Set<Follow>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<UsedTotpCode> UsedTotpCodes => Set<UsedTotpCode>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
     public DbSet<UserPrivacySettings> UserPrivacySettings => Set<UserPrivacySettings>();
 
@@ -418,6 +429,9 @@ public class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<User, Id
         b.Entity<PasswordResetToken>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<PasswordResetToken>().HasIndex(t => t.TokenHash).IsUnique();
         b.Entity<PasswordResetToken>().HasIndex(t => t.UserId);
+        b.Entity<UsedTotpCode>().HasOne<User>().WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<UsedTotpCode>().HasIndex(c => new { c.UserId, c.Code }).IsUnique();
+        b.Entity<UsedTotpCode>().HasIndex(c => c.UsedAt);
         // A hand-managed singleton row: the app assigns Id 1 rather than the database.
         b.Entity<ServerSettings>().Property(s => s.Id).ValueGeneratedNever();
         b.Entity<Follow>().ToTable(t =>

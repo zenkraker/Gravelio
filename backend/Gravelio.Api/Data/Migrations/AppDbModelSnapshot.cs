@@ -764,6 +764,34 @@ namespace Gravelio.Api.Data.Migrations
                     b.ToTable("ServerSettings");
                 });
 
+            modelBuilder.Entity("Gravelio.Api.Data.UsedTotpCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsedAt");
+
+                    b.HasIndex("UserId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("UsedTotpCodes");
+                });
+
             modelBuilder.Entity("Gravelio.Api.Data.User", b =>
                 {
                     b.Property<int>("Id")
@@ -1230,6 +1258,15 @@ namespace Gravelio.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Gravelio.Api.Data.UsedTotpCode", b =>
+                {
+                    b.HasOne("Gravelio.Api.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gravelio.Api.Data.UserPrivacySettings", b =>

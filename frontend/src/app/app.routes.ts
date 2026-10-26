@@ -109,6 +109,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/notifications').then((m) => m.NotificationsPage),
       },
       {
+        path: 'security',
+        title: 'Security',
+        loadComponent: () => import('./pages/security').then((m) => m.Security),
+      },
+      {
         path: 'profile',
         title: 'Profile',
         loadComponent: () => import('./pages/profile').then((m) => m.Profile),

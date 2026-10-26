@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { createHmac } from 'node:crypto';
 import { Page, expect, test } from '@playwright/test';
 
 const PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'Admin-Password-1!';
@@ -53,6 +54,21 @@ async function openHealth(page: Page, name: string): Promise<void> {
 async function xsrf(page: Page): Promise<string> {
   const token = (await page.context().cookies()).find((c) => c.name === 'XSRF-TOKEN')?.value;
   return token ? decodeURIComponent(token) : '';
+}
+
+/** RFC 6238 code (30 s step, SHA-1, 6 digits) for an authenticator key, `stepsAhead` steps from now. */
+function totp(base32: string, stepsAhead = 0): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bits = [...base32.toUpperCase().replace(/[^A-Z2-7]/g, '')]
+    .map((c) => alphabet.indexOf(c).toString(2).padStart(5, '0'))
+    .join('');
+  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000) + stepsAhead));
+  const hash = createHmac('sha1', key).update(counter).digest();
+  const offset = hash[hash.length - 1] & 0x0f;
+  const binary = hash.readUInt32BE(offset) & 0x7fffffff;
+  return String(binary % 1_000_000).padStart(6, '0');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -436,6 +452,76 @@ test('follow a user, accept the request, and see their public activity in the fe
   await page.getByRole('radio', { name: 'Following', exact: true }).click();
   await expect(page.getByRole('link', { name: title })).toBeVisible();
   await expectAccessible(page);
+});
+
+test('turn on two-factor authentication, sign in with a code, and use a recovery code', async ({
+  page,
+}) => {
+  const suffix = Date.now();
+  const username = `e2e.mfa${suffix}`;
+  const password = 'Str0ng-pass!';
+
+  await signIn(page);
+  const created = await page.request.post('/api/v1/users', {
+    headers: { 'X-XSRF-TOKEN': await xsrf(page) },
+    data: {
+      name: 'E2E Mfa',
+      username,
+      email: `${username}@example.com`,
+      access_type: 'regular',
+      active: true,
+      password,
+    },
+  });
+  expect(created.status()).toBe(201);
+  await signOut(page);
+
+  await signIn(page, username, password);
+  await page.getByRole('link', { name: /E2E Mfa/ }).click();
+  await page.getByRole('link', { name: 'Security', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Security', level: 1 })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Set up' }).click();
+  const secret = (await page.locator('code.key').innerText()).replace(/\s/g, '');
+  await page.getByLabel('Current password').fill(password);
+  await page.getByLabel('Code from the app').fill(totp(secret));
+  await expectAccessible(page);
+  await page.getByRole('button', { name: 'Turn on' }).click();
+  await expect(
+    page.getByRole('list', { name: 'Recovery codes' }).getByRole('listitem'),
+  ).toHaveCount(10);
+  const recovery = await page
+    .getByRole('list', { name: 'Recovery codes' })
+    .getByRole('listitem')
+    .first()
+    .innerText();
+  await expectAccessible(page);
+  await page.getByRole('button', { name: 'I have saved my codes' }).click();
+  await expect(page.getByText('Recovery codes left: 10')).toBeVisible();
+
+  await signOut(page);
+  // The code that turned MFA on is spent, so sign in with one from the next step.
+  await page.goto('/login');
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByLabel('Code')).toBeVisible();
+  await expectAccessible(page);
+  await page.getByLabel('Code').fill('000000');
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByRole('alert')).toContainText('Incorrect code');
+  await page.getByLabel('Code').fill(totp(secret, 1));
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
+  await signOut(page);
+
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByLabel('Code').fill(recovery.trim());
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
 });
 
 test('sign out ends the session', async ({ page }) => {

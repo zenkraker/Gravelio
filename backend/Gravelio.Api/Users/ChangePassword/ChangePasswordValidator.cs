@@ -12,5 +12,6 @@ public sealed class ChangePasswordValidator : Validator<ChangePasswordRequest>
     {
         RuleFor(x => x.CurrentPassword).NotEmpty().MaximumLength(128);
         RuleFor(x => x.NewPassword).NotEmpty().MaximumLength(128);
+        RuleFor(x => x.Code).MaximumLength(32);
     }
 }

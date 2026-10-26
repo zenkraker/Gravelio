@@ -17,6 +17,21 @@ export interface User {
   first_day_of_week: string;
   timezone: string;
   currency: 'euro' | 'dollar' | 'pound';
+  mfa_enabled: boolean;
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  recovery_codes_left: number;
+}
+
+export interface MfaSetup {
+  secret: string;
+  uri: string;
+}
+
+export interface RecoveryCodes {
+  recovery_codes: string[];
 }
 
 export interface Activity {

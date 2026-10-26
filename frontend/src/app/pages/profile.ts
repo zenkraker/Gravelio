@@ -36,7 +36,10 @@ type BooleanPrivacyKey = {
   template: `
     <header>
       <h1 i18n>Profile</h1>
-      <a mat-button [routerLink]="['/people', auth.user()?.id]" i18n>View public profile</a>
+      <span>
+        <a mat-button routerLink="/security" i18n>Security</a>
+        <a mat-button [routerLink]="['/people', auth.user()?.id]" i18n>View public profile</a>
+      </span>
     </header>
     <mat-card appearance="outlined">
       <mat-card-content>
@@ -223,6 +226,12 @@ type BooleanPrivacyKey = {
             ><mat-label i18n>New password</mat-label
             ><input matInput type="password" autocomplete="new-password" [formField]="pw.next"
           /></mat-form-field>
+          @if (auth.user()?.mfa_enabled) {
+            <mat-form-field
+              ><mat-label i18n>Authenticator or recovery code</mat-label
+              ><input matInput autocomplete="one-time-code" [formField]="pw.code"
+            /></mat-form-field>
+          }
           @if (passwordError()) {
             <p class="error" role="alert">{{ passwordError() }}</p>
           }
@@ -294,7 +303,7 @@ export class Profile {
     required(p.email, { message: $localize`Enter your email` });
   });
 
-  private readonly passwords = signal({ current: '', next: '' });
+  private readonly passwords = signal({ current: '', next: '', code: '' });
   protected readonly pw = form(this.passwords, (p) => {
     required(p.current, { message: $localize`Enter your current password` });
     required(p.next, { message: $localize`Enter a new password` });
@@ -365,14 +374,15 @@ export class Profile {
     this.passwordError.set('');
     await submit(this.pw, async () => {
       try {
-        const { current, next } = this.passwords();
+        const { current, next, code } = this.passwords();
         await firstValueFrom(
           this.http.put('/api/v1/users/me/password', {
             current_password: current,
             new_password: next,
+            code: code || null,
           }),
         );
-        this.passwords.set({ current: '', next: '' });
+        this.passwords.set({ current: '', next: '', code: '' });
         this.snack.open($localize`Password changed`, undefined, { duration: 4000 });
       } catch (err) {
         this.passwordError.set(problemMessage(err));

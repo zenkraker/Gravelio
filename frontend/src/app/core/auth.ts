@@ -17,9 +17,23 @@ export class AuthService {
   readonly user = signal<User | null>(null);
   readonly isAdmin = computed(() => this.user()?.access_type === 'admin');
 
-  async login(username: string, password: string): Promise<void> {
-    await firstValueFrom(this.http.post('/api/v1/auth/login', { username, password }));
+  /** Resolves to 'mfa' when the password was right but a code is still needed (see verifyMfa). */
+  async login(username: string, password: string): Promise<'ok' | 'mfa'> {
+    const result = await firstValueFrom(
+      this.http.post<{ mfa_required: boolean } | null>('/api/v1/auth/login', {
+        username,
+        password,
+      }),
+    );
+    if (result?.mfa_required) return 'mfa';
     await this.loadUser(); // also fetches the XSRF token for the new identity
+    return 'ok';
+  }
+
+  /** Second step of signing in with MFA: an authenticator code or a recovery code. */
+  async verifyMfa(code: string): Promise<void> {
+    await firstValueFrom(this.http.post('/api/v1/auth/mfa/verify', { code }));
+    await this.loadUser();
   }
 
   /** Called once at startup; a 401 just means nobody is signed in. */

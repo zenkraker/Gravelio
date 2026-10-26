@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Gravelio.Api.Auth;
 
-public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> users) : Endpoint<LoginRequest>
+public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> users) : Endpoint<LoginRequest, LoginResponse>
 {
     public override void Configure()
     {
@@ -22,6 +22,15 @@ public sealed class LoginEndpoint(SignInManager<User> signIn, UserManager<User> 
             // nor its timing reveals which accounts exist.
             users.PasswordHasher.HashPassword(new User { Name = "", UserName = "" }, req.Password);
             ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
+        }
+        if (user.TwoFactorEnabled)
+        {
+            // Accepting the password leaves Identity's two-factor cookie, not a session; VerifyMfaEndpoint finishes the sign-in.
+            var pending = await signIn.PasswordSignInAsync(user, req.Password, isPersistent: true, lockoutOnFailure: true);
+            if (pending.IsLockedOut) ThrowError("Account locked due to too many failed login attempts. Try again later.", StatusCodes.Status429TooManyRequests);
+            if (!pending.RequiresTwoFactor) ThrowError("Incorrect username or password", StatusCodes.Status401Unauthorized);
+            await Send.OkAsync(new LoginResponse(MfaRequired: true), ct);
+            return;
         }
         // The password is checked before the cookie is issued, so an unconfirmed account never gets a session.
         var result = await signIn.CheckPasswordSignInAsync(user, req.Password, lockoutOnFailure: true);

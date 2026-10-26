@@ -72,6 +72,8 @@ docker compose up -d --build   # db + one-shot EF migration bundle + api + nginx
   - Password minimums: 8 characters for regular users and 12 for admins, plus upper, lower, digit and punctuation. Admins get the extra length through a custom `IPasswordValidator<User>`.
   - Security-sensitive changes (password, role, deactivation) call `UpdateSecurityStampAsync` so other sessions are revoked.
   - Login is rate-limited per IP with `Microsoft.AspNetCore.RateLimiting`.
+  - Sensitive changes (turning MFA on or off, new recovery codes, changing the password with MFA on) re-check the current password and a code through `MfaCodes.StepUpAsync`; a wrong answer counts toward Identity's account lockout. Signing in to an MFA account is two steps: `LoginEndpoint` accepts the password and leaves Identity's short-lived two-factor cookie, `VerifyMfaEndpoint` checks the code and issues the session.
+  - Identity's `ResetAuthenticatorKeyAsync` and `UpdateSecurityStampAsync` invalidate the caller's own cookie too: call `RefreshSignInAsync` afterwards.
 - Return errors with `ThrowError(message, statusCode)` (it always throws, so no `return` after it). An endpoint that makes several `UserManager` calls (one admin edit) wraps them in `db.Database.BeginTransactionAsync` and commits only at the end, so a rejected step never leaves a half-applied change.
 - Users only ever see their own data. Look a record up through the `OwnedBy(userId, ...)` extensions in `Requests.cs` (activities, gears, components), never with a hand-written filter; another user's resource returns 404, not 403. A missing resource named in the route is `Send.NotFoundAsync`; one named in the body is `ThrowError(r => r.Prop, msg, 404)`. Admin-only routes join `AdminUsersGroup` (it holds the `admin` role requirement once).
 - The first admin is seeded on an empty database from `Admin:Password` (12+ characters). It is required, never generated: a generated password would have to be logged. `DB_PASSWORD` and `ADMIN_PASSWORD` are required by `docker-compose.yml` and empty in `.env.example`.
@@ -107,7 +109,7 @@ Endurain's original code has these flaws; do not carry them over. Each needs a t
 
 - **Public (anonymous) endpoints return a dedicated minimal DTO**, never the user or activity entity or the signed-in DTO, and only for data the owner has made public. A public user lookup returns id, display name and photo for a user who has a public activity: no email, birthdate, height, heart rate, role or status. The test asserts the sensitive fields are absent.
 - **Hiding something hides everything derived from it.** `hide_map` and `hide_location` also blank lap start/end coordinates, geocoded place names and thumbnails. Every stream type maps to a hide flag, and a type with no mapping is hidden (default-deny, never default-visible). The test hides the map and checks laps, then loops over all stream types.
-- **A one-time MFA code works once.** Store the last accepted TOTP time step per user and reject any code at or before it (RFC 6238 §5.2). Identity's authenticator provider does not do this. The test submits the same valid code twice.
+- **A one-time MFA code works once** (RFC 6238 §5.2). Identity's authenticator provider accepts a valid code again for about two and a half minutes, so every accepted code goes through `MfaCodes` in `Mfa/`, which records it in `UsedTotpCodes` (unique per user and code, kept 10 minutes) and refuses a repeat; the unique index also stops two parallel submissions. Never call `VerifyTwoFactorTokenAsync` or `TwoFactorAuthenticatorSignInAsync` directly. The test submits the same valid code twice, from two sign-ins.
 - **Forged client IPs are ignored** (see the forwarded-headers rule above).
 
 ## Angular
@@ -204,6 +206,7 @@ Every Angular component and page must follow this to pass review. The theme live
 - **Check it visually.** After a UI change, look at the page in light and dark and run the Playwright + axe suite before calling it done (see the rule above).
 
 <!-- CODEGRAPH_START -->
+
 ## CodeGraph
 
 In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
